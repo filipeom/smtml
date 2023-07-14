@@ -3,29 +3,25 @@ open Types
 
 exception InvalidRelop
 
-type qt = Forall | Exists [@@deriving compare, sexp, hash]
+type qt = Forall | Exists
 
-type expr =
-  | Val of Value.t
-  | SymPtr of Int32.t * expr
-  | Unop of unop * expr
-  | Binop of binop * expr * expr
-  | Relop of relop * expr * expr
-  | Cvtop of cvtop * expr
-  | Triop of triop * expr * expr * expr
-  | Symbol of Symbol.t
-  | Extract of expr * Int.t * Int.t
-  | Concat of expr * expr
-  | Quantifier of qt * Symbol.t list * expr * expr list list
-[@@deriving compare, sexp, hash]
+type _ t =
+  | Val : 'a Value.t -> 'a t
+  | SymPtr : int32 * 'a t -> 'a t
+  | Unop : unop * 'a t -> 'a t
+  | Binop : binop * 'a t * 'a t -> 'a t
+  | Relop : relop * 'a t * 'a t -> 'a t
+  | Cvtop : cvtop * 'a t -> 'a t
+  | Triop : triop * 'a t * 'a t * 'a t -> 'a t
+  | Symbol : Symbol.t -> 'a t
+  | Extract : 'a t * int * int -> 'a t
+  | Concat : 'a t * 'a t  -> 'a t
+(*  | Quantifier of qt * Symbol.t list * expr * expr list list*)
 
-type t = expr [@@deriving compare, sexp, hash]
-type pc = expr List.t
-
-let ( ++ ) (e1 : expr) (e2 : expr) = Concat (e1, e2)
+let ( ++ ) (e1 : _ t) (e2 : _ t) = Concat (e1, e2)
 let mk_symbol (s : Symbol.t) = Symbol s
 
-let mk_symbol_s (t : expr_type) (x : string) : expr =
+let mk_symbol_s (t : expr_type) (x : string) : _ t =
   Symbol (Symbol.mk_symbol t x)
 
 let is_num (e : expr) : Bool.t = match e with Val (Num _) -> true | _ -> false
