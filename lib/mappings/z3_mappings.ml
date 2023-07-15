@@ -585,7 +585,7 @@ let num i32 i64 f32 f64 : Num.t -> Z3.Expr.expr = function
   | F32 x -> f32 x
   | F64 x -> f64 x
 
-let encode_val : Value.t -> Z3.Expr.expr = function
+let encode_val : type a. a Value.t -> Z3.Expr.expr = function
   | Int v -> I.encode_val v
   | Real v -> Real.encode_val v
   | Bool v -> Boolean.encode_val v
@@ -617,7 +617,7 @@ let encode_cvtop : Types.cvtop -> Z3.Expr.expr -> Z3.Expr.expr =
     Str.encode_cvtop I32.encode_cvtop I64.encode_cvtop F32.encode_cvtop
     F64.encode_cvtop
 
-let encode_quantifier (t : bool) (vars_list : Symbol.t list)
+let _encode_quantifier (t : bool) (vars_list : Symbol.t list)
   (body : Z3.Expr.expr) (patterns : Z3.Quantifier.Pattern.pattern list) :
   Z3.Expr.expr =
   if List.length vars_list > 0 then
@@ -635,9 +635,7 @@ let encode_quantifier (t : bool) (vars_list : Symbol.t list)
     quantified_assertion
   else body
 
-let rec encode_expr (e : Expression.t) : expr =
-  let open Expression in
-  match e with
+let rec encode_expr : type a. a Expression.t -> Z3.Expr.expr = function
   | Val v -> encode_val v
   | SymPtr (base, offset) ->
     let base' = encode_val (Num (I32 base)) in
@@ -679,6 +677,7 @@ let rec encode_expr (e : Expression.t) : expr =
     let e1' = encode_expr e1
     and e2' = encode_expr e2 in
     Z3.BitVector.mk_concat ctx e1' e2'
+(*
   | Quantifier (t, vars, body, patterns) ->
     let body' = encode_expr body in
     let encode_pattern p =
@@ -687,8 +686,9 @@ let rec encode_expr (e : Expression.t) : expr =
     let patterns' = List.map ~f:encode_pattern patterns in
     let t' = match t with Forall -> true | Exists -> false in
     encode_quantifier t' vars body' patterns'
+*)
 
-let expr_to_smtstring (es : Expression.t list) (status : bool) =
+let expr_to_smtstring (es : _ Expression.t list) (status : bool) =
   let es' = List.map ~f:encode_expr es in
   Z3.Params.set_print_mode ctx Z3enums.PRINT_SMTLIB2_COMPLIANT;
   Z3.SMT.benchmark_to_smtstring ctx "" "" (Bool.to_string status) ""
@@ -701,22 +701,22 @@ let push (s : solver) : unit = Z3.Solver.push s
 let pop (s : solver) (lvl : int) : unit = Z3.Solver.pop s lvl
 let reset (s : solver) : unit = Z3.Solver.reset s [@@inline]
 
-let add_solver (s : solver) (es : Expression.t list) : unit =
+let add_solver (s : solver) (es : bool Expression.t list) : unit =
   Z3.Solver.add s (List.map ~f:encode_expr es)
 
-let check (s : solver) (es : Expression.t list) : status =
+let check (s : solver) (es : bool Expression.t list) : status =
   Z3.Solver.check s (List.map ~f:encode_expr es)
 
 let get_model (s : solver) : model option = Z3.Solver.get_model s
 let mk_opt () : optimize = Z3.Optimize.mk_opt ctx
 
-let add_opt (o : optimize) (es : Expression.t list) : unit =
+let add_opt (o : optimize) (es : _ Expression.t list) : unit =
   Z3.Optimize.add o (List.map ~f:encode_expr es)
 
-let maximize (o : optimize) (e : Expression.t) : Z3.Optimize.handle =
+let maximize (o : optimize) (e : _ Expression.t) : Z3.Optimize.handle =
   Z3.Optimize.maximize o (encode_expr e)
 
-let minimize (o : optimize) (e : Expression.t) : Z3.Optimize.handle =
+let minimize (o : optimize) (e : _ Expression.t) : Z3.Optimize.handle =
   Z3.Optimize.minimize o (encode_expr e)
 
 let get_opt_model (o : optimize) : model Option.t = Z3.Optimize.get_model o
@@ -726,12 +726,12 @@ let set (s : string) (i : int) (n : char) =
   Bytes.set bs i n;
   Bytes.to_string bs
 
-let int64_of_bv (bv : Z3.Expr.expr) : int64 =
+let _int64_of_bv (bv : Z3.Expr.expr) : int64 =
   assert (Z3.Expr.is_numeral bv);
   Int64.of_string (Z3.BitVector.numeral_to_string bv)
 
 (* FIXME: this is a mess, urgently fix! *)
-let int64_of_fp (fp : Z3.Expr.expr) ~(ebits : int) ~(sbits : int) : int64 =
+let _int64_of_fp (fp : Z3.Expr.expr) ~(ebits : int) ~(sbits : int) : int64 =
   assert (Z3.Expr.is_numeral fp);
   if Z3.FloatingPoint.is_numeral_nan ctx fp then
     if Z3.FloatingPoint.is_numeral_negative ctx fp then
@@ -761,11 +761,14 @@ let int64_of_fp (fp : Z3.Expr.expr) ~(ebits : int) ~(sbits : int) : int64 =
     and fraction = List.nth_exn bit_list 2 in
     Int64.(fp_sign lor (exponent lor fraction))
 
-let value_of_const (model : Z3.Model.model) (c : Expression.t) : Value.t option
+let value_of_const (_model : Z3.Model.model) (_c : _ Expression.t) : _ Value.t option = assert false
+(*
+let value_of_const (model : Z3.Model.model) (c : _ Expression.t) : _ Value.t option
     =
-  let t = Expression.type_of c
-  and interp = Z3.Model.eval model (encode_expr c) true in
-  let f (e : Z3.Expr.expr) : Value.t =
+  let t = Expression.type_of c in
+  let interp = Z3.Model.eval model (encode_expr c) true in
+  let f : 'a. Z3.Expr.expr -> 'a Value.t =
+    fun (type a) (e : Z3.Expr.expr) :  ->
     match (t, Z3.Sort.get_sort_kind (Z3.Expr.get_sort e)) with
     | `IntType, Z3enums.INT_SORT ->
       Int (Int.of_string (Z3.Arithmetic.Integer.numeral_to_string e))
@@ -788,6 +791,7 @@ let value_of_const (model : Z3.Model.model) (c : Expression.t) : Value.t option
     | _ -> assert false
   in
   Option.map ~f interp
+  *)
 
 let type_of_sort (sort : Z3.Sort.sort) : Types.expr_type =
   match Z3.Sort.get_sort_kind sort with
@@ -801,12 +805,13 @@ let type_of_sort (sort : Z3.Sort.sort) : Types.expr_type =
     if Z3.FloatingPoint.get_sbits ctx sort = 23 then `F32Type else `F64Type
   | _ -> assert false
 
-let symbols_of_model (model : Z3.Model.model) : Symbol.t list =
+let _symbols_of_model (model : Z3.Model.model) : Symbol.t list =
   List.map (Z3.Model.get_const_decls model) ~f:(fun const ->
     let x = Z3.Symbol.to_string (Z3.FuncDecl.get_name const) in
     let t = type_of_sort (Z3.FuncDecl.get_range const) in
     Symbol.mk_symbol t x )
 
+(*
 let model_binds (model : Z3.Model.model) (symbols : Symbol.t list) : Model.t =
   let m = Hashtbl.create (module Symbol) in
   List.iter symbols ~f:(fun s ->
@@ -818,6 +823,7 @@ let value_binds ?(symbols : Symbol.t list option) (model : Z3.Model.model) :
   Model.t =
   let symbols' = Option.value symbols ~default:(symbols_of_model model) in
   model_binds model symbols'
+  *)
 
 let satisfiability =
   let open Mappings_intf in

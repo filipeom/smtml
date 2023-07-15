@@ -15,9 +15,9 @@ let time_call ~f ~accum =
 let create () : t = Z3_mappings.mk_opt ()
 let push (opt : t) : unit = Z3.Optimize.push opt
 let pop (opt : t) : unit = Z3.Optimize.pop opt
-let add (opt : t) (es : Expression.t list) : unit = Z3_mappings.add_opt opt es
+let add (opt : t) (es : _ Expression.t list) : unit = Z3_mappings.add_opt opt es
 
-let check (opt : t) (e : Expression.t) (pc : Expression.t list) target =
+let check (type a) (opt : t) (e : a Expression.t) (pc : _ Expression.t list) target =
   push opt;
   add opt pc;
   ignore (target opt e);
@@ -26,14 +26,14 @@ let check (opt : t) (e : Expression.t) (pc : Expression.t list) target =
   pop opt;
   model
 
-let maximize (opt : t) (e : Expression.t) (pc : Expression.t list) :
-    Value.t option =
+let maximize (type a) (opt : t) (e : a Expression.t) (pc : _ Expression.t list) :
+    a Value.t option =
   let model = check opt e pc Z3_mappings.maximize in
   Option.value_map model ~default:None ~f:(fun m ->
       Z3_mappings.value_of_const m e)
 
-let minimize (opt : t) (e : Expression.t) (pc : Expression.t list) :
-    Value.t option =
+let minimize (type a) (opt : t) (e : a Expression.t) (pc : _ Expression.t list) :
+    a Value.t option =
   let model = check opt e pc Z3_mappings.minimize in
   Option.value_map model ~default:None ~f:(fun m ->
       Z3_mappings.value_of_const m e)

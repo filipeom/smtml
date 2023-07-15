@@ -1,4 +1,3 @@
-open Core
 open Encoding
 module Batch = Batch.Make (Z3_mappings)
 
@@ -21,16 +20,24 @@ let%test "check-constrained" =
 (* eval *)
 let%test "eval-unconstrained" =
   assert (Batch.check solver []);
-  let m = Batch.model solver in
+  (*let m = Batch.model solver in
   Option.is_some @@ Model.evaluate (Option.value_exn m) symb_x
+  *)
+  false
 
 let%test "eval-constrained_int" =
   assert (Batch.check solver [ Integer.mk_eq x (Integer.mk_val 5) ]);
+  (*
   let m = Batch.model ~symbols:[ symb_x ] solver in
   Poly.(Some (Value.Int 5) = Model.evaluate (Option.value_exn m) symb_x)
+  *)
+  false
 
 let%test "value_binds" =
-  let pc = [ Boolean.mk_eq y (Boolean.mk_val false) ] in
+  let pc = [ Boolean.mk_eq y (Boolean.const false) ] in
   assert (Batch.check solver pc);
+  (*
   let model = Option.value_exn (Batch.model solver) in
   Poly.(Some (Value.Bool false) = Model.evaluate model symb_y)
+  *)
+  false

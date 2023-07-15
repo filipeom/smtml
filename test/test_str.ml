@@ -46,5 +46,8 @@ let%test "test_symb_substr" =
     ]
   in
   assert (Batch.check solver pc);
+  (*
   let m = Batch.model solver in
   Some (Value.Str "abc") = Model.evaluate (Option.get m) symb_x
+  *)
+  false

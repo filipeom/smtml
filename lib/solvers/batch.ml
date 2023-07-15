@@ -1,6 +1,6 @@
 exception Unknown
 
-let ( let+ ) o f = Option.map f o
+(*let ( let+ ) o f = Option.map f o*)
 
 module Make (Mappings : Mappings_intf.S) = struct
   open Core
@@ -10,8 +10,8 @@ module Make (Mappings : Mappings_intf.S) = struct
 
   type t =
     { solver : solver
-    ; mutable top : Expr.t list
-    ; stack : Expr.t list Stack.t
+    ; mutable top : bool Expr.t list
+    ; stack : bool Expr.t list Stack.t
     }
 
   let solver_time = ref 0.0
@@ -44,11 +44,10 @@ module Make (Mappings : Mappings_intf.S) = struct
     Stack.clear s.stack;
     s.top <- []
 
-  let add (s : t) (es : Expr.t list) : unit = s.top <- es @ s.top
+  let add (s : t) (es : bool Expr.t list) : unit = s.top <- es @ s.top
+  let get_assertions (s : t) : bool Expr.t list = s.top [@@inline]
 
-  let get_assertions (s : t) : Expr.t list = s.top [@@inline]
-
-  let check (s : t) (es : Expr.t list) : bool =
+  let check (s : t) (es : bool Expr.t list) : bool =
     let es' = es @ s.top in
     solver_count := !solver_count + 1;
     let sat = time_call (fun () -> Mappings.check s.solver es') solver_time in
@@ -57,9 +56,11 @@ module Make (Mappings : Mappings_intf.S) = struct
     | Mappings_intf.Unsatisfiable -> false
     | Mappings_intf.Unknown -> raise Unknown
 
+  (*
   let model ?(symbols : Symbol.t list option) (s : t) : Model.t Option.t =
     let+ m = Mappings.get_model s.solver in
     Mappings.value_binds ?symbols m
+    *)
 end
 
 module Make' (M : Mappings_intf.S) : Solver_intf.S = Make (M)

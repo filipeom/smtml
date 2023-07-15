@@ -10,6 +10,7 @@
 (library
  (name encoding)
  (public_name encoding)
+ (modules :standard \ axioms model)
  (libraries core z3)
  (preprocess
   (pps ppx_jane)))

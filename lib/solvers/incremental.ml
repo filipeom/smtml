@@ -1,7 +1,5 @@
 exception Unknown
 
-let ( let+ ) o f = Option.map f o
-
 module Make (Mappings : Mappings_intf.S) = struct
   open Core
   module Expr = Expression
@@ -25,12 +23,12 @@ module Make (Mappings : Mappings_intf.S) = struct
   let pop (solver : t) (lvl : int) : unit = Mappings.pop solver lvl
   let reset (solver : t) : unit = Mappings.reset solver
 
-  let add (solver : t) (es : Expr.t list) : unit =
+  let add (solver : t) (es : bool Expr.t list) : unit =
     Mappings.add_solver solver es
 
-  let get_assertions (_solver : t) : Expr.t list = assert false
+  let get_assertions (_solver : t) : bool Expr.t list = assert false
 
-  let check (solver : t) (es : Expr.t list) : bool =
+  let check (solver : t) (es : bool Expr.t list) : bool =
     let b =
       solver_count := !solver_count + 1;
       let sat = time_call (fun () -> Mappings.check solver es) solver_time in
@@ -41,9 +39,11 @@ module Make (Mappings : Mappings_intf.S) = struct
     in
     b
 
+  (*
   let model ?(symbols : Symbol.t list option) (solver : t) : Model.t Option.t =
     let+ m = Mappings.get_model solver in
     Mappings.value_binds ?symbols m
+    *)
 end
 
 module Make' (M : Mappings_intf.S) : Solver_intf.S = Make (M)
