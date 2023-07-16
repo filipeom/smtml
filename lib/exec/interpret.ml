@@ -16,9 +16,10 @@ module Make (Solver : Solver_intf.S) = struct
       | Declare x ->
         Hashtbl.add_exn smap ~key:(Symbol.to_string x) ~data:(Symbol.type_of x);
         (List.tl_exn code, pc)
-      | Assert _e ->
-        (*Solver.add solver [ e ];*)
-        (List.tl_exn code, pc)
+      | Assert e ->
+        let e' = Option.value_exn @@ Ast.type_check_expr e Expr.BoolTy in
+        Solver.add solver [ e' ];
+        (List.tl_exn code, e' :: pc)
       | CheckSat ->
         if Solver.check solver [] then printf "sat\n" else printf "unsat\n";
         (List.tl_exn code, pc)

@@ -20,6 +20,13 @@ type _ t =
   | Concat : 'a t * 'a t -> 'a t
 (*  | Quantifier of qt * Symbol.t list * expr * expr list list*)
 
+type 'a ty =
+  | IntTy : int ty
+  | RealTy : float ty
+  | BoolTy : bool ty
+  | NumTy : Num.t ty
+  | StrTy : string ty
+
 let ( ++ ) (e1 : _ t) (e2 : _ t) = Concat (e1, e2)
 let mk_symbol (s : Symbol.t) = Symbol s
 
