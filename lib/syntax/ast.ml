@@ -44,6 +44,43 @@ let ty_of_type : type a. expr_type -> a Expr.ty = function
   | _ -> assert false
   *)
 
+let rec type_check_expr : 'a. expr -> 'a Expr.ty -> 'a Expr.t option =
+  fun (type a) (e : expr) (ty : a Expr.ty) ->
+   match (e, ty) with
+   | Val x, ty ->
+     let+ v = type_check_value x ty in
+     Expr.Val v
+   | Symbol x, _ty -> Some (Expr.Symbol x)
+   | Unop (op, e), ty ->
+     let+ e' = type_check_expr e ty in
+     Expr.Unop (op, e')
+   | Binop (op, e1, e2), ty ->
+     let* e1' = type_check_expr e1 ty in
+     let+ e2' = type_check_expr e2 ty in
+     Expr.Binop (op, e1', e2')
+   | Relop (op, e1, e2), BoolTy -> (
+     match (type_check_expr e1 NumTy, type_check_expr e2 NumTy) with
+     | Some e1', Some e2' -> return (Expr.Relop (op, e1', e2'))
+     | _ ->
+       let* e1' = type_check_expr e1 BoolTy in
+       let+ e2' = type_check_expr e2 BoolTy in
+       Expr.Relop (op, e1', e2') )
+   | Cvtop (I32 ToBool, e), BoolTy ->
+     let+ e' = type_check_expr e NumTy in
+     Expr.Cvtop (I32 ToBool, e')
+   | Cvtop (I32 OfBool, e), NumTy ->
+     let+ e' = type_check_expr e BoolTy in
+     Expr.Cvtop (I32 OfBool, e')
+   | Cvtop (op, e), ty ->
+     let+ e' = type_check_expr e ty in
+     Expr.Cvtop (op, e')
+   | Triop (op, e1, e2, e3), ty ->
+     let* e1' = type_check_expr e1 ty in
+     let* e2' = type_check_expr e2 ty in
+     let+ e3' = type_check_expr e3 ty in
+     Expr.Triop (op, e1', e2', e3')
+   | _ -> None
+
 let string_of_uvalue = function
   | Int x -> Int.to_string x
   | Real x -> Float.to_string x
@@ -130,40 +167,3 @@ let to_string (instr : t) : string =
   | Assert e -> sprintf "(assert %s)" (string_of_expr e)
   | CheckSat -> "(check-sat)"
   | GetModel -> "(get-model)"
-
-let rec type_check_expr : 'a. expr -> 'a Expr.ty -> 'a Expr.t option =
-  fun (type a) (e : expr) (ty : a Expr.ty) ->
-   match (e, ty) with
-   | Val x, ty ->
-     let* v = type_check_value x ty in
-     return (Expr.Val v)
-   | Symbol x, _ty -> Some (Expr.Symbol x)
-   | Unop (op, e), ty ->
-     let* e' = type_check_expr e ty in
-     return (Expr.Unop (op, e'))
-   | Binop (op, e1, e2), ty ->
-     let* e1' = type_check_expr e1 ty in
-     let* e2' = type_check_expr e2 ty in
-     return (Expr.Binop (op, e1', e2'))
-   | Relop (op, e1, e2), BoolTy -> (
-     match (type_check_expr e1 NumTy, type_check_expr e2 NumTy) with
-     | Some e1', Some e2' -> return (Expr.Relop (op, e1', e2'))
-     | _ ->
-       let* e1' = type_check_expr e1 BoolTy in
-       let* e2' = type_check_expr e2 BoolTy in
-       return (Expr.Relop (op, e1', e2')) )
-   | Cvtop (I32 ToBool, e), BoolTy ->
-     let* e' = type_check_expr e NumTy in
-     return (Expr.Cvtop (I32 ToBool, e'))
-   | Cvtop (I32 OfBool, e), NumTy ->
-     let* e' = type_check_expr e BoolTy in
-     return (Expr.Cvtop (I32 OfBool, e'))
-   | Cvtop (op, e), ty ->
-     let* e' = type_check_expr e ty in
-     return (Expr.Cvtop (op, e'))
-   | Triop (op, e1, e2, e3), ty ->
-     let* e1' = type_check_expr e1 ty in
-     let* e2' = type_check_expr e2 ty in
-     let* e3' = type_check_expr e3 ty in
-     return (Expr.Triop (op, e1', e2', e3'))
-   | _ -> None
