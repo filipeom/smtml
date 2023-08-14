@@ -1,31 +1,26 @@
 open Core
-open Types
+open Type
 
 exception InvalidRelop
 
-type qt =
-  | Forall
-  | Exists
+(* type qt = *)
+(*   | Forall *)
+(*   | Exists *)
 
 type _ t =
   | Val : 'a Value.t -> 'a t
   | SymPtr : int32 * 'a t -> 'a t
-  | Unop : unop * 'a t -> 'b t
-  | Binop : binop * 'a t * 'a t -> 'a t
-  | Relop : relop * 'a t * 'a t -> bool t
-  | Cvtop : cvtop * 'a t -> 'b t
-  | Triop : triop * 'a t * 'b t * 'b t -> 'a t
+  | Unop : 'a unop * 'b t -> 'a t
+  | Binop : 'a binop * 'a t * 'a t -> 'a t
+  | Relop : 'a relop * 'a t * 'a t -> bool t
+  | Cvtop : ('a, 'b) cvtop * 'a t -> 'b t
+  | Triop : 'a triop * 'a t * 'b t * 'b t -> 'a t
   | Symbol of Symbol.t
   | Extract : 'a t * int * int -> 'a t
   | Concat : 'a t * 'a t -> 'a t
-(*  | Quantifier of qt * Symbol.t list * expr * expr list list*)
+(* | Quantifier of qt * Symbol.t list * expr * expr list list *)
 
-type 'a ty =
-  | IntTy : int ty
-  | RealTy : float ty
-  | BoolTy : bool ty
-  | NumTy : Num.t ty
-  | StrTy : string ty
+type expr = E : 'a t -> expr
 
 let ( ++ ) (e1 : _ t) (e2 : _ t) = Concat (e1, e2)
 let mk_symbol (s : Symbol.t) = Symbol s
@@ -41,33 +36,32 @@ let is_binop (e : _ t) : bool = match e with Binop _ -> true | _ -> false
 let is_cvtop (e : _ t) : bool = match e with Cvtop _ -> true | _ -> false
 let is_triop (e : _ t) : bool = match e with Triop _ -> true | _ -> false
 
-let is_concrete (e : _ t) : Bool.t =
+let is_concrete (e : _ t) : bool =
   match e with Val _ | SymPtr (_, Val _) -> true | _ -> false
 
-let rec equal : 'a. 'a t -> 'a t -> bool =
-  fun (type a) (e1 : a t) (e2 : a t) ->
-   match (e1, e2) with
-   | Val v1, Val v2 -> Value.equal v1 v2
-   | SymPtr (b1, o1), SymPtr (b2, o2) -> Int32.(b1 = b2) && equal o1 o2
-   | Unop (op1, _e1), Unop (op2, _e2) -> Poly.(op1 = op2) && assert false
-   | Cvtop (op1, _e1), Cvtop (op2, _e2) -> Poly.(op1 = op2) && assert false
-   | Binop (op1, e1, e3), Binop (op2, e2, e4) ->
-     Poly.(op1 = op2) && equal e1 e2 && equal e3 e4
-   | Relop (op1, _e1, _e3), Relop (op2, _e2, _e4) ->
-     Poly.(op1 = op2) && assert false
-   | Triop (op1, e1, _e3, _e5), Triop (op2, e2, _e4, _e6) ->
-     Poly.(op1 = op2) && equal e1 e2 && assert false
-   | Symbol s1, Symbol s2 -> Symbol.equal s1 s2
-   | Extract (e1, h1, l1), Extract (e2, h2, l2) ->
-     equal e1 e2 && Int.(h1 = h2) && Int.(l1 = l2)
-   | Concat (e1, e3), Concat (e2, e4) -> equal e1 e2 && equal e3 e4
-   (* | Quantifier (q1, vars1, e1, p1), Quantifier (q2, vars2, e2, p2) ->
-      Poly.(q1 = q2)
-      && List.equal Symbol.equal vars1 vars2
-      && equal e1 e2
-      && List.equal (List.equal equal) p1 p2
-   *)
-   | _ -> false
+(* let rec equal : 'a. 'a t -> 'a t -> bool = *)
+(*   fun (type a) (e1 : a t) (e2 : a t) -> *)
+(*    match (e1, e2) with *)
+(*    | Val v1, Val v2 -> Value.equal v1 v2 *)
+(*    | SymPtr (b1, o1), SymPtr (b2, o2) -> Int32.(b1 = b2) && equal o1 o2 *)
+(*    | Unop (op1, _e1), Unop (op2, _e2) -> Poly.(op1 = op2) && assert false *)
+(*    | Cvtop (op1, _e1), Cvtop (op2, _e2) -> Poly.(op1 = op2) && assert false *)
+(*    | Binop (op1, e1, e3), Binop (op2, e2, e4) -> *)
+(*      Poly.(op1 = op2) && equal e1 e2 && equal e3 e4 *)
+(*    | Relop (op1, _e1, _e3), Relop (op2, _e2, _e4) -> *)
+(*      Poly.(op1 = op2) && assert false *)
+(*    | Triop (op1, e1, _e3, _e5), Triop (op2, e2, _e4, _e6) -> *)
+(*      Poly.(op1 = op2) && equal e1 e2 && assert false *)
+(*    | Symbol s1, Symbol s2 -> Symbol.equal s1 s2 *)
+(*    | Extract (e1, h1, l1), Extract (e2, h2, l2) -> *)
+(*      equal e1 e2 && Int.(h1 = h2) && Int.(l1 = l2) *)
+(*    | Concat (e1, e3), Concat (e2, e4) -> equal e1 e2 && equal e3 e4 *)
+(*    | Quantifier (q1, vars1, e1, p1), Quantifier (q2, vars2, e2, p2) -> *)
+(*       Poly.(q1 = q2) *)
+(*       && List.equal Symbol.equal vars1 vars2 *)
+(*       && equal e1 e2 *)
+(*       && List.equal (List.equal equal) p1 p2 *)
+(*    | _ -> false *)
 
 let rec length : type a. a t -> int = function
   | Val _ -> 1
@@ -125,120 +119,97 @@ let rename_symbols (es : _ t list) : _ t list =
   in
   List.map ~f:rename es
 
-let type_of (type a) (e : a t) : expr_type =
-  match e with
-  | Val v -> Value.type_of v
-  | SymPtr _ -> `I32Type
-  | Binop (op, _, _) -> Types.type_of op
-  | Triop (op, _, _, _) -> Types.type_of op
-  | Unop (op, _) -> Types.type_of op
-  | Relop (op, _, _) -> Types.type_of op
-  | Cvtop (op, _) -> Types.type_of op
-  | Symbol s -> Symbol.type_of s
-  | Extract (_, _h, _l) -> assert false
-  | Concat (_e1, _e2) -> assert false
+module Integer = struct
+  let const (i : int) : int t = Val (Int i)
+  let neg (e : int t) : int t = Unop (Int Neg, e)
+  let ( + ) (e1 : int t) (e2 : int t) : int t = Binop (Int Add, e1, e2)
+  let ( - ) (e1 : int t) (e2 : int t) : int t = Binop (Int Sub, e1, e2)
+  let ( * ) (e1 : int t) (e2 : int t) : int t = Binop (Int Mul, e1, e2)
+  let ( / ) (e1 : int t) (e2 : int t) : int t = Binop (Int Div, e1, e2)
+  let rem (e1 : int t) (e2 : int t) : int t = Binop (Int Rem, e1, e2)
+  let ( = ) (e1 : int t) (e2 : int t) : bool t = Relop (Int Eq, e1, e2)
+  let ( != ) (e1 : int t) (e2 : int t) : bool t = Relop (Int Ne, e1, e2)
+  let ( < ) (e1 : int t) (e2 : int t) : bool t = Relop (Int Lt, e1, e2)
+  let ( <= ) (e1 : int t) (e2 : int t) : bool t = Relop (Int Le, e1, e2)
+  let ( > ) (e1 : int t) (e2 : int t) : bool t = Relop (Int Gt, e1, e2)
+  let ( >= ) (e1 : int t) (e2 : int t) : bool t = Relop (Int Ge, e1, e2)
+  let cvt_to_string (e : int t) : string t = Cvtop (Int ToString, e)
+  let cvt_of_string (e : string t) : int t = Cvtop (Int OfString, e)
+  let cvt_of_real (e : float t) : int t = Cvtop (Int ReinterpretFloat, e)
+end
 
-let negate_relop (type a) (e : a t) : a t =
-  match e with
-  | Relop (op, e1, e2) -> (
-    match op with
-    | Int op' -> Relop (Int (I.neg_relop op'), e1, e2)
-    | Real op' -> Relop (Real (R.neg_relop op'), e1, e2)
-    | Bool op' -> Relop (Bool (B.neg_relop op'), e1, e2)
-    | Str op' -> Relop (Str (S.neg_relop op'), e1, e2)
-    | I32 op' -> Relop (I32 (I32.neg_relop op'), e1, e2)
-    | I64 op' -> Relop (I64 (I64.neg_relop op'), e1, e2)
-    | F32 op' -> Relop (F32 (F32.neg_relop op'), e1, e2)
-    | F64 op' -> Relop (F64 (F64.neg_relop op'), e1, e2) )
-  | _ -> raise InvalidRelop
+module Boolean = struct
+  let const (b : bool) : bool t = Val (Bool b)
+  let not_ (e : bool t) : bool t = Unop (Bool Not, e)
+  let and_ (e1 : bool t) (e2 : bool t) : bool t = Binop (Bool And, e1, e2)
+  let or_ (e1 : bool t) (e2 : bool t) : bool t = Binop (Bool Or, e1, e2)
+  let xor (e1 : bool t) (e2 : bool t) : bool t = Binop (Bool Xor, e1, e2)
+  let eq (e1 : bool t) (e2 : bool t) : bool t = Relop (Bool Eq, e1, e2)
+  let ne (e1 : bool t) (e2 : bool t) : bool t = Relop (Bool Ne, e1, e2)
 
-let rec to_string : type a. a t -> string = function
-  | Val v -> Value.to_string v
-  | SymPtr (base, offset) ->
-    let str_o = to_string offset in
-    sprintf "(i32.add (i32 %ld) %s)" base str_o
-  | Unop (op, e) ->
-    let str_op =
-      match op with
-      | Int op -> "int." ^ I.string_of_unop op
-      | Real op -> "real." ^ R.string_of_unop op
-      | Bool op -> "bool." ^ B.string_of_unop op
-      | Str op -> "str." ^ S.string_of_unop op
-      | I32 op -> "i32." ^ I32.string_of_unop op
-      | I64 op -> "i64." ^ I64.string_of_unop op
-      | F32 op -> "f32." ^ F32.string_of_unop op
-      | F64 op -> "f64." ^ F64.string_of_unop op
-    in
-    sprintf "(%s %s)" str_op (to_string e)
-  | Binop (op, e1, e2) ->
-    let str_op =
-      match op with
-      | Int op -> "int." ^ I.string_of_binop op
-      | Real op -> "real." ^ R.string_of_binop op
-      | Bool op -> "bool." ^ B.string_of_binop op
-      | Str op -> "str." ^ S.string_of_binop op
-      | I32 op -> "i32." ^ I32.string_of_binop op
-      | I64 op -> "i64." ^ I64.string_of_binop op
-      | F32 op -> "f32." ^ F32.string_of_binop op
-      | F64 op -> "f64." ^ F64.string_of_binop op
-    in
-    sprintf "(%s %s %s)" str_op (to_string e1) (to_string e2)
-  | Triop (op, e1, e2, e3) ->
-    let str_op =
-      match op with
-      | Int op -> "int." ^ I.string_of_triop op
-      | Real op -> "real." ^ R.string_of_triop op
-      | Bool op -> "bool." ^ B.string_of_triop op
-      | Str op -> "str." ^ S.string_of_triop op
-      | I32 op -> "i32." ^ I32.string_of_triop op
-      | I64 op -> "i64." ^ I64.string_of_triop op
-      | F32 op -> "f32." ^ F32.string_of_triop op
-      | F64 op -> "f64." ^ F64.string_of_triop op
-    in
-    sprintf "(%s %s %s %s)" str_op (to_string e1) (to_string e2) (to_string e3)
-  | Relop (op, e1, e2) ->
-    let str_op =
-      match op with
-      | Int op -> "int." ^ I.string_of_relop op
-      | Real op -> "real." ^ R.string_of_relop op
-      | Bool op -> "bool." ^ B.string_of_relop op
-      | Str op -> "str." ^ S.string_of_relop op
-      | I32 op -> "i32." ^ I32.string_of_relop op
-      | I64 op -> "i64." ^ I64.string_of_relop op
-      | F32 op -> "f32." ^ F32.string_of_relop op
-      | F64 op -> "f64." ^ F64.string_of_relop op
-    in
-    sprintf "(%s %s %s)" str_op (to_string e1) (to_string e2)
-  | Cvtop (op, e) ->
-    let str_op =
-      match op with
-      | Int op -> "int." ^ I.string_of_cvtop op
-      | Real op -> "real." ^ R.string_of_cvtop op
-      | Bool op -> "bool." ^ B.string_of_cvtop op
-      | Str op -> "str." ^ S.string_of_cvtop op
-      | I32 op -> "i32." ^ I32.string_of_cvtop op
-      | I64 op -> "i64." ^ I64.string_of_cvtop op
-      | F32 op -> "f32." ^ F32.string_of_cvtop op
-      | F64 op -> "f64." ^ F64.string_of_cvtop op
-    in
-    sprintf "(%s %s)" str_op (to_string e)
-  | Symbol s -> Symbol.to_string s
-  | Extract (e, h, l) -> sprintf "(extract %s %d %d)" (to_string e) l h
-  | Concat (e1, e2) -> sprintf "(++ %s %s)" (to_string e1) (to_string e2)
+  let ite (e1 : bool t) (e2 : bool t) (e3 : bool t) =
+    Triop (Bool Ite, e1, e2, e3)
+end
 
-let to_smt (es : _ t list) : string =
-  let symbols =
-    List.map (get_symbols es) ~f:(fun s ->
-      let x = Symbol.to_string s
-      and t = Symbol.type_of s in
-      sprintf "(declare-fun %s %s)" x (Types.string_of_type t) )
-  in
-  let es' = List.map es ~f:(fun e -> sprintf "(assert %s)" (to_string e)) in
-  String.concat ~sep:"\n" (symbols @ es' @ [ "(check-sat)" ])
+module Pp = struct
+  let rec pp : type a. a t -> string = function
+    | Val v -> Value.to_string v
+    | SymPtr (base, offset) ->
+      let str_o = pp offset in
+      sprintf "(i32.add (i32 %ld) %s)" base str_o
+    | Unop (op, e) -> sprintf "(%s %s)" (Pp.pp_unop op) (pp e)
+    | Binop (op, e1, e2) ->
+      sprintf "(%s %s %s)" (Pp.pp_binop op) (pp e1) (pp e2)
+    | Triop (op, e1, e2, e3) ->
+      sprintf "(%s %s %s %s)" (Pp.pp_triop op) (pp e1) (pp e2) (pp e3)
+    | Relop (op, e1, e2) ->
+      sprintf "(%s %s %s)" (Pp.pp_relop op) (pp e1) (pp e2)
+    | Cvtop (op, e) -> sprintf "(%s %s)" (Pp.pp_cvtop op) (pp e)
+    | Symbol s -> Symbol.to_string s
+    | Extract (e, h, l) -> sprintf "(extract %s %d %d)" (pp e) l h
+    | Concat (e1, e2) -> sprintf "(++ %s %s)" (pp e1) (pp e2)
+end
 
-let string_of_exprs (pc : _ t list) : string =
-  let pc' = String.concat ~sep:" " (List.map ~f:to_string pc) in
-  if List.length pc > 1 then sprintf "(and %s)" pc' else pc'
+(* let type_of (type a) (e : a t) : expr_type = *)
+(*   match e with *)
+(*   | Val v -> Value.type_of v *)
+(*   | SymPtr _ -> `I32Type *)
+(*   | Binop (op, _, _) -> Types.type_of op *)
+(*   | Triop (op, _, _, _) -> Types.type_of op *)
+(*   | Unop (op, _) -> Types.type_of op *)
+(*   | Relop (op, _, _) -> Types.type_of op *)
+(*   | Cvtop (op, _) -> Types.type_of op *)
+(*   | Symbol s -> Symbol.type_of s *)
+(*   | Extract (_, _h, _l) -> assert false *)
+(*   | Concat (_e1, _e2) -> assert false *)
+
+(* let negate_relop (type a) (e : a t) : a t = *)
+(*   match e with *)
+(*   | Relop (op, e1, e2) -> ( *)
+(*     match op with *)
+(*     | Int op' -> Relop (Int (I.neg_relop op'), e1, e2) *)
+(*     | Real op' -> Relop (Real (R.neg_relop op'), e1, e2) *)
+(*     | Bool op' -> Relop (Bool (B.neg_relop op'), e1, e2) *)
+(*     | Str op' -> Relop (Str (S.neg_relop op'), e1, e2) *)
+(*     | I32 op' -> Relop (I32 (I32.neg_relop op'), e1, e2) *)
+(*     | I64 op' -> Relop (I64 (I64.neg_relop op'), e1, e2) *)
+(*     | F32 op' -> Relop (F32 (F32.neg_relop op'), e1, e2) *)
+(*     | F64 op' -> Relop (F64 (F64.neg_relop op'), e1, e2) ) *)
+(*   | _ -> raise InvalidRelop *)
+
+(* let to_smt (es : _ t list) : string = *)
+(*   let symbols = *)
+(*     List.map (get_symbols es) ~f:(fun s -> *)
+(*       let x = Symbol.to_string s *)
+(*       and t = Symbol.type_of s in *)
+(*       sprintf "(declare-fun %s %s)" x (Types.string_of_type t) ) *)
+(*   in *)
+(*   let es' = List.map es ~f:(fun e -> sprintf "(assert %s)" (to_string e)) in *)
+(*   String.concat ~sep:"\n" (symbols @ es' @ [ "(check-sat)" ]) *)
+
+(* let string_of_exprs (pc : _ t list) : string = *)
+(*   let pc' = String.concat ~sep:" " (List.map ~f:to_string pc) in *)
+(*   if List.length pc > 1 then sprintf "(and %s)" pc' else pc' *)
 
 let rec get_ptr : type a. a t -> Num.t option = function
   (* FIXME: this function can be "simplified" *)
@@ -277,11 +248,11 @@ let concretize_ptr (e : Num.t t) : Num.t option =
 let concretize_base_ptr (e : Num.t t) : int32 option =
   match e with SymPtr (base, _) -> Some base | _ -> None
 
-let to_bool : type a. a t -> bool t option = function
-  | Val _ | SymPtr _ -> None
-  | (Relop _ as e') -> Some e'
-  | Cvtop (I32 OfBool, _e') -> assert false
-  | _ as e -> Some (Cvtop (I32 ToBool, e))
+(* let to_bool : type a. a t -> bool t option = function *)
+(*   | Val _ | SymPtr _ -> None *)
+(*   | (Relop _ as e') -> Some e' *)
+(*   | Cvtop (I32 OfBool, _e') -> assert false *)
+(*   | _ as e -> Some (Cvtop (I32 ToBool, e)) *)
 
 let nland64 (x : int64) (n : int) =
   let rec loop x' n' acc =
@@ -476,25 +447,25 @@ let rec simplify ?(extract = true) (e : _ t) : _ t =
   | _ -> e
   *)
 
-let mk_relop (e : Num.t t) (t : num_type) : bool t =
-  let zero = Value.Num (Num.default_value t) in
-  match t with
-  | `I32Type -> Relop (I32 Ne, e, Val zero)
-  | `I64Type -> Relop (I64 Ne, e, Val zero)
-  | `F32Type -> Relop (F32 Ne, e, Val zero)
-  | `F64Type -> Relop (F64 Ne, e, Val zero)
+(* let mk_relop (e : Num.t t) (t : num_type) : bool t = *)
+(*   let zero = Value.Num (Num.default_value t) in *)
+(*   match t with *)
+(*   | `I32Type -> Relop (I32 Ne, e, Val zero) *)
+(*   | `I64Type -> Relop (I64 Ne, e, Val zero) *)
+(*   | `F32Type -> Relop (F32 Ne, e, Val zero) *)
+(*   | `F64Type -> Relop (F64 Ne, e, Val zero) *)
 
-let add_constraint ?(neg : bool = false) (e : _ t) (pc : _ t) : _ t =
-  let cond =
-    let c = to_bool e in
-    if neg then Option.map ~f:(fun e -> Unop (Bool Not, e)) c else c
-  in
-  Option.fold cond ~init:pc ~f:(fun pc c ->
-    match pc with _ -> Binop (Bool And, c, pc) )
+(* let add_constraint ?(neg : bool = false) (e : _ t) (pc : _ t) : _ t = *)
+(*   let cond = *)
+(*     let c = to_bool e in *)
+(*     if neg then Option.map ~f:(fun e -> Unop (Bool Not, e)) c else c *)
+(*   in *)
+(*   Option.fold cond ~init:pc ~f:(fun pc c -> *)
+(*     match pc with _ -> Binop (Bool And, c, pc) ) *)
 
-let insert_pc ?(neg : bool = false) (e : _ t) (pc : _ t list) : _ t list =
-  let cond =
-    let c = to_bool e in
-    if neg then Option.map ~f:(fun e -> Unop (Bool Not, e)) c else c
-  in
-  Option.fold cond ~init:pc ~f:(fun pc a -> a :: pc)
+(* let insert_pc ?(neg : bool = false) (e : _ t) (pc : _ t list) : _ t list = *)
+(*   let cond = *)
+(*     let c = to_bool e in *)
+(*     if neg then Option.map ~f:(fun e -> Unop (Bool Not, e)) c else c *)
+(*   in *)
+(*   Option.fold cond ~init:pc ~f:(fun pc a -> a :: pc) *)
