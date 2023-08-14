@@ -4,7 +4,6 @@ exception Unknown
 
 module Make (Mappings : Mappings_intf.S) = struct
   open Core
-  module Expr = Expression
 
   type solver = Mappings.solver
 

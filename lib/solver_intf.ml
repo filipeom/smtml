@@ -10,8 +10,8 @@ module type S = sig
   val push : t -> unit
   val pop : t -> int -> unit
   val reset : t -> unit
-  val add : t -> bool Expression.t list -> unit
-  val get_assertions : t -> bool Expression.t list
-  val check : t -> bool Expression.t list -> bool
+  val add : t -> bool Expr.t list -> unit
+  val get_assertions : t -> bool Expr.t list
+  val check : t -> bool Expr.t list -> bool
 (*  val model : ?symbols:Symbol.t list -> t -> Model.t option*)
 end

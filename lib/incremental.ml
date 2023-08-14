@@ -2,7 +2,6 @@ exception Unknown
 
 module Make (Mappings : Mappings_intf.S) = struct
   open Core
-  module Expr = Expression
 
   let solver_time = ref 0.0
   let solver_count = ref 0

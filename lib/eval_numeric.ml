@@ -504,16 +504,34 @@ end
 
 (* Dispatch *)
 
-let op i32 i64 f32 f64 = function
-  | Int _ -> failwith "eval_numeric: Integer evaluations not supported"
-  | Real _ -> failwith "eval_numeric: Float evaluations not supported"
-  | I32 x -> i32 x
-  | I64 x -> i64 x
-  | F32 x -> f32 x
-  | F64 x -> f64 x
-  | Str _ | Bool _ -> assert false
+let eval_unop (op : _ unop) (n : Num.t) : Num.t =
+  match op with
+  | I32 x -> I32Op.unop x n
+  | I64 x -> I64Op.unop x n
+  | F32 x -> F32Op.unop x n
+  | F64 x -> F64Op.unop x n
+  | _ -> assert false
 
-let eval_unop = op I32Op.unop I64Op.unop F32Op.unop F64Op.unop
-let eval_binop = op I32Op.binop I64Op.binop F32Op.binop F64Op.binop
-let eval_relop = op I32Op.relop I64Op.relop F32Op.relop F64Op.relop
-let eval_cvtop = op I32CvtOp.cvtop I64CvtOp.cvtop F32CvtOp.cvtop F64CvtOp.cvtop
+let eval_binop (op : binop) (n1 : Num.t) (n2 : Num.t) : Num.t =
+  match op with
+  | I32 x -> I32Op.binop x n1 n2
+  | I64 x -> I64Op.binop x n1 n2
+  | F32 x -> F32Op.binop x n1 n2
+  | F64 x -> F64Op.binop x n1 n2
+  | _ -> assert false
+
+let eval_relop (op : relop) (n1 : Num.t) (n2 : Num.t) : bool =
+  match op with
+  | I32 x -> I32Op.relop x n1 n2
+  | I64 x -> I64Op.relop x n1 n2
+  | F32 x -> F32Op.relop x n1 n2
+  | F64 x -> F64Op.relop x n1 n2
+  | _ -> assert false
+
+let eval_cvtop (op : cvtop) (n : Num.t) : Num.t =
+  match op with
+  | I32 x -> I32CvtOp.cvtop x n
+  | I64 x -> I64CvtOp.cvtop x n
+  | F32 x -> F32CvtOp.cvtop x n
+  | F64 x -> F64CvtOp.cvtop x n
+  | _ -> assert false

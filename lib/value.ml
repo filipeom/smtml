@@ -1,5 +1,5 @@
 open Core
-open Types
+open Type
 
 type _ t =
   | Int : int -> int t
