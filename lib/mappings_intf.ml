@@ -26,7 +26,7 @@ module type S = sig
   val maximize : optimize -> _ Expr.t -> handle
   val minimize : optimize -> _ Expr.t -> handle
   val get_opt_model : optimize -> model Option.t
-  val value_of_const : model -> _ Expr.t -> _ Value.t option
-(*  val value_binds : ?symbols:Symbol.t list -> model -> Model.t*)
+  val value_of_const : model -> _ Expr.t -> Value.value option
+  val value_binds : ?symbols:Symbol.symbol list -> model -> Model.t
   val satisfiability : status -> satisfiability
 end

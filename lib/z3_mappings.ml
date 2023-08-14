@@ -1,6 +1,8 @@
 open Core
 open Type
 
+let ( let+ ) o f = Option.map o ~f
+
 exception Error of string
 
 type expr = Z3.Expr.expr
@@ -25,16 +27,13 @@ let fp64_sort = Z3.FloatingPoint.mk_sort_double ctx
 let rne = Z3.FloatingPoint.RoundingMode.mk_rne ctx
 let rtz = Z3.FloatingPoint.RoundingMode.mk_rtz ctx
 
-let get_sort (e : Type.expr_type) : Z3.Sort.sort =
+let get_sort (type a) (e : a Type.ty) : Z3.Sort.sort =
   match e with
-  | `IntType -> int_sort
-  | `RealType -> real_sort
-  | `BoolType -> bool_sort
-  | `StrType -> str_sort
-  | `I32Type -> bv32_sort
-  | `I64Type -> bv64_sort
-  | `F32Type -> fp32_sort
-  | `F64Type -> fp64_sort
+  | IntTy -> int_sort
+  | RealTy -> real_sort
+  | BoolTy -> bool_sort
+  | StrTy -> str_sort
+  | NumTy -> assert false
 
 module Integer = struct
   open Z3
@@ -569,23 +568,23 @@ let encode_cvtop : type a r. (a, r) Type.cvtop -> Z3.Expr.expr -> Z3.Expr.expr =
   | F32 op -> F32.encode_cvtop op
   | F64 op -> F64.encode_cvtop op
 
-let _encode_quantifier (t : bool) (vars_list : Symbol.t list)
-  (body : Z3.Expr.expr) (patterns : Z3.Quantifier.Pattern.pattern list) :
-  Z3.Expr.expr =
-  if List.length vars_list > 0 then
-    let quantified_assertion =
-      Z3.Quantifier.mk_quantifier_const ctx t
-        (List.map vars_list ~f:(fun s ->
-           Z3.Expr.mk_const_s ctx (Symbol.to_string s)
-             (get_sort (Symbol.type_of s)) ) )
-        body None patterns [] None None
-    in
-    let quantified_assertion =
-      Z3.Quantifier.expr_of_quantifier quantified_assertion
-    in
-    let quantified_assertion = Z3.Expr.simplify quantified_assertion None in
-    quantified_assertion
-  else body
+(* let _encode_quantifier (t : bool) (vars_list : Symbol.t list) *)
+(*   (body : Z3.Expr.expr) (patterns : Z3.Quantifier.Pattern.pattern list) : *)
+(*   Z3.Expr.expr = *)
+(*   if List.length vars_list > 0 then *)
+(*     let quantified_assertion = *)
+(*       Z3.Quantifier.mk_quantifier_const ctx t *)
+(*         (List.map vars_list ~f:(fun s -> *)
+(*            Z3.Expr.mk_const_s ctx (Symbol.to_string s) *)
+(*              (get_sort (Symbol.type_of s)) ) ) *)
+(*         body None patterns [] None None *)
+(*     in *)
+(*     let quantified_assertion = *)
+(*       Z3.Quantifier.expr_of_quantifier quantified_assertion *)
+(*     in *)
+(*     let quantified_assertion = Z3.Expr.simplify quantified_assertion None in *)
+(*     quantified_assertion *)
+(*   else body *)
 
 let rec encode_expr : type a. a Expr.t -> Z3.Expr.expr = function
   | Val v -> encode_val v
@@ -619,7 +618,7 @@ let rec encode_expr : type a. a Expr.t -> Z3.Expr.expr = function
     let e' = encode_expr e in
     encode_cvtop op e'
   | Symbol s ->
-    let x = Symbol.to_string s
+    let x = Symbol.Pp.pp s
     and t = Symbol.type_of s in
     Z3.Expr.mk_const_s ctx x (get_sort t)
   | Extract (e, h, l) ->
@@ -711,71 +710,81 @@ let _int64_of_fp (fp : Z3.Expr.expr) ~(ebits : int) ~(sbits : int) : int64 =
     and fraction = List.nth_exn bit_list 2 in
     Int64.(fp_sign lor (exponent lor fraction))
 
-let value_of_const (_model : Z3.Model.model) (_c : _ Expr.t) : _ Value.t option
+let value_of_const (model : Z3.Model.model) (c : _ Expr.t) : Value.value option
     =
-  assert false
-(*
-let value_of_const (model : Z3.Model.model) (c : _ Expression.t) : _ Value.t option
-    =
-  let t = Expression.type_of c in
-  let interp = Z3.Model.eval model (encode_expr c) true in
-  let f : 'a. Z3.Expr.expr -> 'a Value.t =
-    fun (type a) (e : Z3.Expr.expr) :  ->
-    match (t, Z3.Sort.get_sort_kind (Z3.Expr.get_sort e)) with
-    | `IntType, Z3enums.INT_SORT ->
-      Int (Int.of_string (Z3.Arithmetic.Integer.numeral_to_string e))
-    | `RealType, Z3enums.REAL_SORT ->
-      Real (Float.of_string (Z3.Arithmetic.Real.to_decimal_string e 6))
-    | `BoolType, Z3enums.BOOL_SORT ->
-      Bool (Bool.of_string (Z3.Expr.to_string e))
-    | `StrType, Z3enums.SEQ_SORT -> Str (Z3.Seq.get_string ctx e)
-    | `I32Type, Z3enums.BV_SORT ->
-      Num (I32 (Int64.to_int32_trunc (int64_of_bv e)))
-    | `I64Type, Z3enums.BV_SORT -> Num (I64 (int64_of_bv e))
-    | `F32Type, Z3enums.FLOATING_POINT_SORT ->
-      let ebits = Z3.FloatingPoint.get_ebits ctx (Z3.Expr.get_sort e)
-      and sbits = Z3.FloatingPoint.get_sbits ctx (Z3.Expr.get_sort e) - 1 in
-      Num (F32 (Int64.to_int32_trunc (int64_of_fp e ~ebits ~sbits)))
-    | `F64Type, Z3enums.FLOATING_POINT_SORT ->
-      let ebits = Z3.FloatingPoint.get_ebits ctx (Z3.Expr.get_sort e)
-      and sbits = Z3.FloatingPoint.get_sbits ctx (Z3.Expr.get_sort e) - 1 in
-      Num (F64 (int64_of_fp e ~ebits ~sbits))
-    | _ -> assert false
-  in
-  Option.map ~f interp
-  *)
-
-let type_of_sort (sort : Z3.Sort.sort) : Type.expr_type =
-  match Z3.Sort.get_sort_kind sort with
-  | Z3enums.INT_SORT -> `IntType
-  | Z3enums.REAL_SORT -> `RealType
-  | Z3enums.BOOL_SORT -> `BoolType
-  | Z3enums.SEQ_SORT -> `StrType
-  | Z3enums.BV_SORT ->
-    if Z3.BitVector.get_size sort = 32 then `I32Type else `I64Type
-  | Z3enums.FLOATING_POINT_SORT ->
-    if Z3.FloatingPoint.get_sbits ctx sort = 23 then `F32Type else `F64Type
+  let+ e = Z3.Model.eval model (encode_expr c) true in
+  match Z3.Sort.get_sort_kind (Z3.Expr.get_sort e) with
+  | Z3enums.INT_SORT ->
+    Value.(V (Int (Int.of_string (Z3.Arithmetic.Integer.numeral_to_string e))))
   | _ -> assert false
 
-let _symbols_of_model (model : Z3.Model.model) : Symbol.t list =
-  List.map (Z3.Model.get_const_decls model) ~f:(fun const ->
-    let x = Z3.Symbol.to_string (Z3.FuncDecl.get_name const) in
-    let t = type_of_sort (Z3.FuncDecl.get_range const) in
-    Symbol.mk_symbol t x )
+(* let value_of_const (model : Z3.Model.model) (c : _ Expression.t) : _ Value.t option *)
+(*     = *)
+(*   let t = Expression.type_of c in *)
+(*   let interp = Z3.Model.eval model (encode_expr c) true in *)
+(*   let f : 'a. Z3.Expr.expr -> 'a Value.t = *)
+(*     fun (type a) (e : Z3.Expr.expr) :  -> *)
+(*     match (t, Z3.Sort.get_sort_kind (Z3.Expr.get_sort e)) with *)
+(*     | `IntType, Z3enums.INT_SORT -> *)
+(*       Int (Int.of_string (Z3.Arithmetic.Integer.numeral_to_string e)) *)
+(*     | `RealType, Z3enums.REAL_SORT -> *)
+(*       Real (Float.of_string (Z3.Arithmetic.Real.to_decimal_string e 6)) *)
+(*     | `BoolType, Z3enums.BOOL_SORT -> *)
+(*       Bool (Bool.of_string (Z3.Expr.to_string e)) *)
+(*     | `StrType, Z3enums.SEQ_SORT -> Str (Z3.Seq.get_string ctx e) *)
+(*     | `I32Type, Z3enums.BV_SORT -> *)
+(*       Num (I32 (Int64.to_int32_trunc (int64_of_bv e))) *)
+(*     | `I64Type, Z3enums.BV_SORT -> Num (I64 (int64_of_bv e)) *)
+(*     | `F32Type, Z3enums.FLOATING_POINT_SORT -> *)
+(*       let ebits = Z3.FloatingPoint.get_ebits ctx (Z3.Expr.get_sort e) *)
+(*       and sbits = Z3.FloatingPoint.get_sbits ctx (Z3.Expr.get_sort e) - 1 in *)
+(*       Num (F32 (Int64.to_int32_trunc (int64_of_fp e ~ebits ~sbits))) *)
+(*     | `F64Type, Z3enums.FLOATING_POINT_SORT -> *)
+(*       let ebits = Z3.FloatingPoint.get_ebits ctx (Z3.Expr.get_sort e) *)
+(*       and sbits = Z3.FloatingPoint.get_sbits ctx (Z3.Expr.get_sort e) - 1 in *)
+(*       Num (F64 (int64_of_fp e ~ebits ~sbits)) *)
+(*     | _ -> assert false *)
+(*   in *)
+(*   Option.map ~f interp *)
 
-(*
-let model_binds (model : Z3.Model.model) (symbols : Symbol.t list) : Model.t =
-  let m = Hashtbl.create (module Symbol) in
-  List.iter symbols ~f:(fun s ->
-    let v = value_of_const model (Expression.mk_symbol s) in
-    Option.iter v ~f:(fun v -> Hashtbl.set m ~key:s ~data:v) );
+(* let type_of_sort (sort : Z3.Sort.sort) : Type.expr_type = *)
+(*   match Z3.Sort.get_sort_kind sort with *)
+(*   | Z3enums.INT_SORT -> `IntType *)
+(*   | Z3enums.REAL_SORT -> `RealType *)
+(*   | Z3enums.BOOL_SORT -> `BoolType *)
+(*   | Z3enums.SEQ_SORT -> `StrType *)
+(*   | Z3enums.BV_SORT -> *)
+(*     if Z3.BitVector.get_size sort = 32 then `I32Type else `I64Type *)
+(*   | Z3enums.FLOATING_POINT_SORT -> *)
+(*     if Z3.FloatingPoint.get_sbits ctx sort = 23 then `F32Type else `F64Type *)
+(*   | _ -> assert false *)
+
+let symbols_of_model (model : Z3.Model.model) : Symbol.symbol list =
+  let open Symbol in
+  let const_decls = Z3.Model.get_const_decls model in
+  List.map const_decls ~f:(fun const ->
+    let x = Z3.Symbol.to_string (Z3.FuncDecl.get_name const) in
+    match Z3.Sort.get_sort_kind (Z3.FuncDecl.get_range const) with
+    | Z3enums.INT_SORT -> Sym (Symbol.mk_symbol_int x)
+    | Z3enums.REAL_SORT -> Sym (Symbol.mk_symbol_real x)
+    | Z3enums.BOOL_SORT -> Sym (Symbol.mk_symbol_bool x)
+    | Z3enums.SEQ_SORT -> Sym (Symbol.mk_symbol_str x)
+    | Z3enums.BV_SORT -> (* TODO *) assert false
+    | Z3enums.FLOATING_POINT_SORT -> (* TODO *) assert false
+    | _ -> assert false )
+
+let model_binds (model : Z3.Model.model) (symbols : Symbol.symbol list) :
+  Model.t =
+  let m = Model.create () in
+  List.iter symbols ~f:(fun (Sym s as sym) ->
+    let v = value_of_const model (Expr.Symbol s) in
+    Option.iter v ~f:(fun v -> Model.add m sym v) );
   m
 
-let value_binds ?(symbols : Symbol.t list option) (model : Z3.Model.model) :
-  Model.t =
+let value_binds ?(symbols : Symbol.symbol list option) (model : Z3.Model.model)
+  : Model.t =
   let symbols' = Option.value symbols ~default:(symbols_of_model model) in
   model_binds model symbols'
-  *)
 
 let satisfiability =
   let open Mappings_intf in

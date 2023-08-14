@@ -15,6 +15,7 @@
   mappings_intf
   z3_mappings
   solver_intf
+  model
   batch
   incremental
   ast

@@ -1,21 +1,28 @@
-open Core
+type t = (Symbol.symbol, Value.value) Hashtbl.t
 
-type t = (Symbol.t, Value.t) Hashtbl.t
+let create () = Hashtbl.create 0
 
-let get_symbols (model : t) : Symbol.t List.t = Hashtbl.keys model
+let add (model : t) (k : Symbol.symbol) (v : Value.value) : unit =
+  Hashtbl.add model k v
 
-let get_bindings (model : t) : (Symbol.t * Value.t) List.t =
-  Hashtbl.to_alist model
+let get_symbols (model : t) : Symbol.symbol list =
+  Hashtbl.to_seq_keys model |> List.of_seq
 
-let evaluate (model : t) (symb : Symbol.t) : Value.t Option.t =
-  Hashtbl.find model symb
+let get_bindings (model : t) : (Symbol.symbol * Value.value) list =
+  Hashtbl.to_seq model |> List.of_seq
 
-let to_string (model : t) : String.t =
+let evaluate (model : t) (symb : Symbol.symbol) : Value.value option =
+  Hashtbl.find_opt model symb
+
+let to_string (model : t) : string =
+  let open Symbol in
   let bindings =
-    Hashtbl.fold model ~init:"" ~f:(fun ~key ~data accum ->
-        let x = Symbol.to_string key
-        and t = Types.string_of_type (Symbol.type_of key)
-        and v = Value.to_string data in
-        sprintf "%s  (%s %s %s)\n" accum x t v)
+    Hashtbl.fold
+      (fun (Sym key) data accum ->
+        let x = Symbol.Pp.pp key
+        and t = Type.Pp.pp_ty (Symbol.type_of key)
+        and v = Value.Pp.pp_value data in
+        Format.sprintf "%s  (%s %s %s)\n" accum x t v )
+      model ""
   in
-  sprintf "(model\n%s)" bindings
+  Format.sprintf "(model\n%s)" bindings

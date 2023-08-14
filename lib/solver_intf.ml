@@ -13,5 +13,5 @@ module type S = sig
   val add : t -> bool Expr.t list -> unit
   val get_assertions : t -> bool Expr.t list
   val check : t -> bool Expr.t list -> bool
-(*  val model : ?symbols:Symbol.t list -> t -> Model.t option*)
+  val model : ?symbols:Symbol.symbol list -> t -> Model.t option
 end

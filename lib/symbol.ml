@@ -1,13 +1,21 @@
 open Core
-open Type
 
-type t = { sort : expr_type; name : String.t }
+type 'a t = S : 'a Type.ty * string -> 'a t
+type symbol = Sym : 'a t -> symbol
 
-let mk_symbol (sort : expr_type) (name : string) = { sort; name }
+let mk_symbol_int (name : string) : int t = S (Type.IntTy, name)
+let mk_symbol_real (name : string) : float t = S (Type.RealTy, name)
+let mk_symbol_bool (name : string) : bool t = S (Type.BoolTy, name)
+let mk_symbol_str (name : string) : string t = S (Type.StrTy, name)
+let mk_symbol_num (name : string) : Num.t t = S (Type.NumTy, name)
 
-let equal (s1 : t) (s2 : t) : bool =
-  Poly.(s1.sort = s2.sort) && String.equal s1.name s2.name
+let equal (type a) (S (_, x1) : a t) (S (_, x2) : a t) : bool =
+  String.equal x1 x2
 
-let rename (s : t) (name : String.t) = { s with name }
-let type_of (s : t) : expr_type = s.sort
-let to_string (s : t) : string = s.name
+let rename (S (ty, _) : _ t) (x : string) = S (ty, x)
+let type_of (type a) (S (ty, _) : a t) : a Type.ty = ty
+
+module Pp = struct
+  let pp (S (_, name) : _ t) : string = name
+  let pp_symbol (Sym s) : string = pp s
+end

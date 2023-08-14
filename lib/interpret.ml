@@ -9,12 +9,12 @@ module Make (Solver : Solver_intf.S) = struct
     ; solver : Solver.t
     }
 
-  let exec_stmt (stmt : Ast.t) ({ smap; solver; pc; _ } as state : exec_state) :
+  let exec_stmt (stmt : Ast.t) ({ solver; pc; _ } as state : exec_state) :
     exec_state =
     let st pc = { state with pc } in
     match stmt with
-    | Declare x ->
-      Hashtbl.add_exn smap ~key:(Symbol.to_string x) ~data:(Symbol.type_of x);
+    | Declare _x ->
+      (* Hashtbl.add_exn smap ~key:(Symbol.to_string x) ~data:(Symbol.type_of x); *)
       st pc
     | Assert e ->
       Solver.add solver [ e ];
@@ -24,8 +24,8 @@ module Make (Solver : Solver_intf.S) = struct
       st pc
     | GetModel ->
       assert (Solver.check solver []);
-      (* let _model = Solver.model solver in *)
-      (* printf "%s" (Model.to_string (Option.value_exn model)); *)
+      let model = Solver.model solver in
+      printf "%s" (Model.to_string (Option.value_exn model));
       st pc
 
   let rec loop (state : exec_state) : exec_state =

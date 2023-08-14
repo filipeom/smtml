@@ -2,10 +2,32 @@
 open Core
 open Expr
 
-let varmap = Hashtbl.create (module String)
+exception Invalid_type of string
+
+let varmap : (string, string) Hashtbl.t = Hashtbl.create (module String)
 
 let add_bind x t = Hashtbl.set varmap ~key:x ~data:t
-let _get_bind x = Hashtbl.find_exn varmap x
+let get_bind x = Hashtbl.find varmap x
+
+let validate_bind (type a) (ty : a Type.ty) x : unit =
+  let ty = Type.Pp.pp_ty ty in
+  match get_bind x with
+  | None -> add_bind x ty
+  | Some ty' ->
+    if not (String.equal ty ty') then
+      let msg =
+        sprintf "Const '%s' of type '%s' cannot be used as '%s'!" x ty' ty
+      in
+      raise (Invalid_type msg)
+
+let mk_symbol (type a) (ty : a Type.ty) x : a Symbol.t =
+  validate_bind ty x;
+  match ty with
+  | Type.IntTy -> Symbol.mk_symbol_int x
+  | Type.RealTy -> Symbol.mk_symbol_real x
+  | Type.BoolTy -> Symbol.mk_symbol_bool x
+  | Type.StrTy -> Symbol.mk_symbol_str x
+  | Type.NumTy -> assert false
 
 %}
 %token LPAREN
@@ -15,6 +37,8 @@ let _get_bind x = Hashtbl.find_exn varmap x
 %token BOOL_NOT BOOL_AND BOOL_OR BOOL_XOR BOOL_EQ BOOL_NE BOOL_ITE
 %token REAL_EQ REAL_NE
 %token STR_EQ STR_NE
+%token INT_TYPE REAL_TYPE BOOL_TYPE STR_TYPE
+%token BV32_TYPE BV64_TYPE FP32_TYPE FP64_TYPE
 %token DECLARE_FUN ASSERT CHECK_SAT GET_MODEL
 (* %token HOLE *)
 %token EOF
@@ -24,7 +48,6 @@ let _get_bind x = Hashtbl.find_exn varmap x
 %token <bool> BOOL
 %token <string> STR
 %token <string> SYMBOL
-%token <Type.expr_type> TYPE
 
 %start <Ast.t list> script
 %%
@@ -32,16 +55,16 @@ let _get_bind x = Hashtbl.find_exn varmap x
 let script := stmts = list(stmt); EOF; { stmts }
 
 let stmt :=
-  | LPAREN; DECLARE_FUN; x = SYMBOL; t = TYPE; RPAREN; {
-      add_bind x t;
-      Ast.Declare (Symbol.mk_symbol t x)
+  | LPAREN; DECLARE_FUN; x = SYMBOL; INT_TYPE; RPAREN; {
+      Ast.Declare (Symbol.Sym (mk_symbol Type.IntTy x))
     }
   | LPAREN; ASSERT; ~ = bexpr; RPAREN; { Ast.Assert bexpr }
   | LPAREN; CHECK_SAT; RPAREN; { Ast.CheckSat }
   | LPAREN; GET_MODEL; RPAREN; { Ast.GetModel }
 
 let iexpr :=
-  | n = NUM; { Val (Value.Int n) }
+  | n = NUM; { Integer.const n }
+  | x = SYMBOL; { Symbol (mk_symbol Type.IntTy x) }
   | LPAREN; INT_NEG; ~ = iexpr; RPAREN; { Unop (Int Neg, iexpr) }
   | LPAREN; INT_ADD; e1 = iexpr; e2 = iexpr; RPAREN; { Binop (Int Add, e1, e2) }
   | LPAREN; INT_SUB; e1 = iexpr; e2 = iexpr; RPAREN; { Binop (Int Sub, e1, e2) }
@@ -51,12 +74,15 @@ let iexpr :=
 
 let fexpr :=
   | n = DEC; { Val (Value.Real n) }
+  | x = SYMBOL; { Symbol (mk_symbol Type.RealTy x) }
 
 let sexpr :=
   | v = STR; { Val (Value.Str v) }
+  | x = SYMBOL; { Symbol (mk_symbol Type.StrTy x) }
 
 let bexpr :=
   | v = BOOL; { Val (Value.Bool v) }
+  | x = SYMBOL; { Symbol (mk_symbol Type.BoolTy x) }
   | LPAREN; BOOL_NOT; e = bexpr; RPAREN; { Unop (Bool Not, e) }
   | LPAREN; BOOL_AND; e1 = bexpr; e2 = bexpr; RPAREN; { Binop (Bool And, e1, e2) }
   | LPAREN; BOOL_XOR; e1 = bexpr; e2 = bexpr; RPAREN; { Binop (Bool Xor, e1, e2) }

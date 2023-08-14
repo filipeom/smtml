@@ -17,7 +17,7 @@ open Core
 (*   | Symbol of Symbol.t *)
 
 type t =
-  | Declare of Symbol.t
+  | Declare of Symbol.symbol
   | Assert of bool Expr.t
   | CheckSat
   | GetModel
@@ -156,9 +156,9 @@ type t =
 
 let to_string (instr : t) : string =
   match instr with
-  | Declare s ->
-    let symb = Symbol.to_string s
-    and t = Type.string_of_type (Symbol.type_of s) in
+  | Declare (Sym s) ->
+    let symb = Symbol.Pp.pp s
+    and t = Type.Pp.pp_ty (Symbol.type_of s) in
     sprintf "(declare-fun %s %s)" symb t
   | Assert e -> sprintf "(assert %s)" (Expr.Pp.pp e)
   | CheckSat -> "(check-sat)"

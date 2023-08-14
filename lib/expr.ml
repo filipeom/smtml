@@ -15,19 +15,20 @@ type _ t =
   | Relop : 'a relop * 'a t * 'a t -> bool t
   | Cvtop : ('a, 'b) cvtop * 'a t -> 'b t
   | Triop : 'a triop * 'a t * 'b t * 'b t -> 'a t
-  | Symbol of Symbol.t
+  | Symbol : 'a Symbol.t -> 'a t
   | Extract : 'a t * int * int -> 'a t
   | Concat : 'a t * 'a t -> 'a t
 (* | Quantifier of qt * Symbol.t list * expr * expr list list *)
 
 type expr = E : 'a t -> expr
 
+let mk_symbol_int (x : string) : int t = Symbol (Symbol.mk_symbol_int x)
+let mk_symbol_real (x : string) : float t = Symbol (Symbol.mk_symbol_real x)
+let mk_symbol_bool (x : string) : bool t = Symbol (Symbol.mk_symbol_bool x)
+let mk_symbol_str (x : string) : string t = Symbol (Symbol.mk_symbol_str x)
+let mk_symbol_num (x : string) : Num.t t = Symbol (Symbol.mk_symbol_num x)
+
 let ( ++ ) (e1 : _ t) (e2 : _ t) = Concat (e1, e2)
-let mk_symbol (s : Symbol.t) = Symbol s
-
-let mk_symbol_s (t : expr_type) (x : string) : _ t =
-  Symbol (Symbol.mk_symbol t x)
-
 let is_num (e : _ t) : bool = match e with Val (Num _) -> true | _ -> false
 let is_val (e : _ t) : bool = match e with Val _ -> true | _ -> false
 let is_unop (e : _ t) : bool = match e with Unop _ -> true | _ -> false
@@ -76,21 +77,21 @@ let rec length : type a. a t -> int = function
   | Concat (e1, e2) -> 1 + length e1 + length e2
 (*  | Quantifier (_, _, body, _) -> length body*)
 
-let get_symbols (e : _ t list) : Symbol.t list =
-  let rec symbols : type a. a t -> Symbol.t list = function
-    | Val _ -> []
-    | SymPtr (_, offset) -> symbols offset
-    | Unop (_, e1) -> symbols e1
-    | Binop (_, e1, e2) -> symbols e1 @ symbols e2
-    | Triop (_, e1, e2, e3) -> symbols e1 @ symbols e2 @ symbols e3
-    | Relop (_, e1, e2) -> symbols e1 @ symbols e2
-    | Cvtop (_, e) -> symbols e
-    | Symbol s -> [ s ]
-    | Extract (e, _, _) -> symbols e
-    | Concat (e1, e2) -> symbols e1 @ symbols e2
-  in
-  List.fold (List.concat_map e ~f:symbols) ~init:[] ~f:(fun accum x ->
-    if List.mem accum x ~equal:Symbol.equal then accum else x :: accum )
+(* let get_symbols (e : _ t list) : _ Symbol.t list = *)
+(*   let rec symbols : type a. a t -> a Symbol.t list = function *)
+(*     | Val _ -> [] *)
+(*     | SymPtr (_, offset) -> symbols offset *)
+(*     | Unop (_, e1) -> symbols e1 *)
+(*     | Binop (_, e1, e2) -> symbols e1 @ symbols e2 *)
+(*     | Triop (_, e1, e2, e3) -> symbols e1 @ symbols e2 @ symbols e3 *)
+(*     | Relop (_, e1, e2) -> symbols e1 @ symbols e2 *)
+(*     | Cvtop (_, e) -> symbols e *)
+(*     | Symbol s -> [ s ] *)
+(*     | Extract (e, _, _) -> symbols e *)
+(*     | Concat (e1, e2) -> symbols e1 @ symbols e2 *)
+(*   in *)
+(*   List.fold (List.concat_map e ~f:symbols) ~init:[] ~f:(fun accum x -> *)
+(*     if List.mem accum x ~equal:Symbol.equal then accum else x :: accum ) *)
 
 let rename_symbols (es : _ t list) : _ t list =
   let count = ref 0
@@ -104,7 +105,7 @@ let rename_symbols (es : _ t list) : _ t list =
     | Relop (op, e1, e2) -> Relop (op, rename e1, rename e2)
     | Cvtop (op, e) -> Cvtop (op, rename e)
     | Symbol s ->
-      let old_name = Symbol.to_string s in
+      let old_name = Symbol.Pp.pp s in
       let new_name =
         if Hashtbl.mem map old_name then Hashtbl.find_exn map old_name
         else
@@ -153,7 +154,7 @@ end
 
 module Pp = struct
   let rec pp : type a. a t -> string = function
-    | Val v -> Value.to_string v
+    | Val v -> Value.Pp.pp v
     | SymPtr (base, offset) ->
       let str_o = pp offset in
       sprintf "(i32.add (i32 %ld) %s)" base str_o
@@ -165,7 +166,7 @@ module Pp = struct
     | Relop (op, e1, e2) ->
       sprintf "(%s %s %s)" (Pp.pp_relop op) (pp e1) (pp e2)
     | Cvtop (op, e) -> sprintf "(%s %s)" (Pp.pp_cvtop op) (pp e)
-    | Symbol s -> Symbol.to_string s
+    | Symbol s -> Symbol.Pp.pp s
     | Extract (e, h, l) -> sprintf "(extract %s %d %d)" (pp e) l h
     | Concat (e1, e2) -> sprintf "(++ %s %s)" (pp e1) (pp e2)
 end

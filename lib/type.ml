@@ -194,12 +194,21 @@ let string_of_type (t : expr_type) : string =
   | `StrType -> "str"
 
 module Pp : sig
+  val pp_ty : _ ty -> string
   val pp_unop : _ unop -> string
   val pp_binop : _ binop -> string
   val pp_relop : _ relop -> string
   val pp_triop : _ triop -> string
   val pp_cvtop : (_, _) cvtop -> string
 end = struct
+  let pp_ty (type a) (ty : a ty) : string =
+    match ty with
+    | IntTy -> "int"
+    | RealTy -> "real"
+    | BoolTy -> "bool"
+    | StrTy -> "str"
+    | NumTy -> "num"
+
   let pp_iunop : iunop -> string = function Neg -> "neg" | Not -> "not"
 
   let pp_funop : funop -> string = function

@@ -1,5 +1,7 @@
 exception Unknown
 
+let ( let+ ) o f = Option.map f o
+
 module Make (Mappings : Mappings_intf.S) = struct
   open Core
 
@@ -38,11 +40,10 @@ module Make (Mappings : Mappings_intf.S) = struct
     in
     b
 
-  (*
-  let model ?(symbols : Symbol.t list option) (solver : t) : Model.t Option.t =
+  let model ?(symbols : Symbol.symbol list option) (solver : t) : Model.t option
+      =
     let+ m = Mappings.get_model solver in
     Mappings.value_binds ?symbols m
-    *)
 end
 
 module Make' (M : Mappings_intf.S) : Solver_intf.S = Make (M)
