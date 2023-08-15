@@ -1,6 +1,3 @@
-open Core
-open Type
-
 type _ t =
   | Int : int -> int t
   | Real : float -> float t
@@ -17,14 +14,6 @@ let equal (type a) (v1 : a t) (v2 : a t) : bool =
   | Bool x1, Bool x2 -> Bool.equal x1 x2
   | Num x1, Num x2 -> Num.(x1 = x2)
   | Str x1, Str x2 -> String.equal x1 x2
-
-let type_of (type a) (v : a t) : expr_type =
-  match v with
-  | Int _ -> `IntType
-  | Real _ -> `RealType
-  | Bool _ -> `BoolType
-  | Num n -> Num.type_of n
-  | Str _ -> `StrType
 
 module Pp = struct
   let pp (type a) (v : a t) : string =

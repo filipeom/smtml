@@ -155,44 +155,6 @@ type (_, _) cvtop =
   | F32 : ('a, 'r) fcvtop -> ('a, 'r) cvtop
   | F64 : ('a, 'r) fcvtop -> ('a, 'r) cvtop
 
-type num_type =
-  [ `I32Type
-  | `I64Type
-  | `F32Type
-  | `F64Type
-  ]
-
-type expr_type =
-  [ num_type
-  | `IntType
-  | `RealType
-  | `BoolType
-  | `StrType
-  ]
-
-let size_of_num_type (t : num_type) : int =
-  match t with `I32Type | `F32Type -> 4 | `I64Type | `F64Type -> 8
-
-let size (t : expr_type) : int =
-  match t with
-  | #num_type as t' -> size_of_num_type t'
-  | `IntType | `RealType | `BoolType | `StrType -> assert false
-
-let string_of_num_type (t : num_type) : string =
-  match t with
-  | `I32Type -> "i32"
-  | `I64Type -> "i64"
-  | `F32Type -> "f32"
-  | `F64Type -> "f64"
-
-let string_of_type (t : expr_type) : string =
-  match t with
-  | #num_type as t' -> string_of_num_type t'
-  | `IntType -> "int"
-  | `RealType -> "real"
-  | `BoolType -> "bool"
-  | `StrType -> "str"
-
 module Pp : sig
   val pp_ty : _ ty -> string
   val pp_unop : _ unop -> string
