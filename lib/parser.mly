@@ -9,7 +9,7 @@ let varmap : (string, string) Hashtbl.t = Hashtbl.create (module String)
 let add_bind x t = Hashtbl.set varmap ~key:x ~data:t
 let get_bind x = Hashtbl.find varmap x
 
-let validate_bind (type a) (ty : a Type.ty) x : unit =
+let _validate_bind (type a) (ty : a Type.ty) x : unit =
   let ty = Type.Pp.pp_ty ty in
   match get_bind x with
   | None -> add_bind x ty
@@ -21,7 +21,6 @@ let validate_bind (type a) (ty : a Type.ty) x : unit =
       raise (Invalid_type msg)
 
 let mk_symbol (type a) (ty : a Type.ty) x : a Symbol.t =
-  validate_bind ty x;
   match ty with
   | Type.IntTy -> Symbol.mk_symbol_int x
   | Type.RealTy -> Symbol.mk_symbol_real x
@@ -34,9 +33,11 @@ let mk_symbol (type a) (ty : a Type.ty) x : a Symbol.t =
 %token RPAREN
 %token INT_NEG INT_ADD INT_SUB INT_DIV INT_MUL INT_REM
 %token INT_EQ INT_NE INT_LT INT_LE INT_GT INT_GE
+%token REAL_NEG REAL_ABS REAL_SQRT REAL_CEIL REAL_FLOOR
+%token REAL_ADD REAL_SUB REAL_DIV REAL_MUL REAL_MIN REAL_MAX
+%token REAL_EQ REAL_NE REAL_LT REAL_LE REAL_GT REAL_GE
 %token BOOL_NOT BOOL_AND BOOL_OR BOOL_XOR BOOL_EQ BOOL_NE BOOL_ITE
-%token REAL_EQ REAL_NE
-%token STR_EQ STR_NE
+%token STR_LEN STR_TRIM STR_CONCAT STR_SUBSTR STR_EQ STR_NE
 %token INT_TYPE REAL_TYPE BOOL_TYPE STR_TYPE
 %token BV32_TYPE BV64_TYPE FP32_TYPE FP64_TYPE
 %token DECLARE_FUN ASSERT CHECK_SAT GET_MODEL
@@ -75,10 +76,28 @@ let iexpr :=
 let fexpr :=
   | n = DEC; { Val (Value.Real n) }
   | x = SYMBOL; { Symbol (mk_symbol Type.RealTy x) }
+  | LPAREN; REAL_NEG; ~ = fexpr; RPAREN; { Unop (Flt Neg, fexpr) }
+  | LPAREN; REAL_ABS; ~ = fexpr; RPAREN; { Unop (Flt Abs, fexpr) }
+  | LPAREN; REAL_SQRT; ~ = fexpr; RPAREN; { Unop (Flt Sqrt, fexpr) }
+  | LPAREN; REAL_CEIL; ~ = fexpr; RPAREN; { Unop (Flt Ceil, fexpr) }
+  | LPAREN; REAL_FLOOR; ~ = fexpr; RPAREN; { Unop (Flt Floor, fexpr) }
+  | LPAREN; REAL_ADD; e1 = fexpr; e2 = fexpr; RPAREN; { Binop (Flt Add, e1, e2) }
+  | LPAREN; REAL_SUB; e1 = fexpr; e2 = fexpr; RPAREN; { Binop (Flt Sub, e1, e2) }
+  | LPAREN; REAL_DIV; e1 = fexpr; e2 = fexpr; RPAREN; { Binop (Flt Div, e1, e2) }
+  | LPAREN; REAL_MUL; e1 = fexpr; e2 = fexpr; RPAREN; { Binop (Flt Mul, e1, e2) }
+  | LPAREN; REAL_MIN; e1 = fexpr; e2 = fexpr; RPAREN; { Binop (Flt Min, e1, e2) }
+  | LPAREN; REAL_MAX; e1 = fexpr; e2 = fexpr; RPAREN; { Binop (Flt Max, e1, e2) }
 
 let sexpr :=
   | v = STR; { Val (Value.Str v) }
   | x = SYMBOL; { Symbol (mk_symbol Type.StrTy x) }
+  | LPAREN; STR_LEN; ~ = sexpr; RPAREN; { Unop (Str Len, sexpr) }
+  | LPAREN; STR_TRIM; ~ = sexpr; RPAREN; { Unop (Str Trim, sexpr) }
+  (* | LPAREN; STR_NTH; e1 = sexpr; e2 = iexpr; RPAREN; { Binop (Str Nth, e1, e2) } *)
+  | LPAREN; STR_CONCAT; e1 = sexpr; e2 = sexpr; RPAREN;
+    { Binop (Str Concat, e1, e2) }
+  | LPAREN; STR_SUBSTR; e1 = sexpr; e2 = iexpr; e3 = iexpr; RPAREN;
+    { Triop (Str Sub_str, e1, e2, e3) }
 
 let bexpr :=
   | v = BOOL; { Val (Value.Bool v) }
@@ -99,6 +118,10 @@ let bexpr :=
   | LPAREN; INT_GE; e1 = iexpr; e2 = iexpr; RPAREN; { Relop (Int Ge, e1, e2) }
   | LPAREN; REAL_EQ; e1 = fexpr; e2 = fexpr; RPAREN; { Relop (Flt Eq, e1, e2) }
   | LPAREN; REAL_NE; e1 = fexpr; e2 = fexpr; RPAREN; { Relop (Flt Ne, e1, e2) }
+  | LPAREN; REAL_LT; e1 = fexpr; e2 = fexpr; RPAREN; { Relop (Flt Lt, e1, e2) }
+  | LPAREN; REAL_LE; e1 = fexpr; e2 = fexpr; RPAREN; { Relop (Flt Le, e1, e2) }
+  | LPAREN; REAL_GT; e1 = fexpr; e2 = fexpr; RPAREN; { Relop (Flt Gt, e1, e2) }
+  | LPAREN; REAL_GE; e1 = fexpr; e2 = fexpr; RPAREN; { Relop (Flt Ge, e1, e2) }
   | LPAREN; STR_EQ; e1 = sexpr; e2 = sexpr; RPAREN; { Relop (Str Eq, e1, e2) }
   | LPAREN; STR_NE; e1 = sexpr; e2 = sexpr; RPAREN; { Relop (Str Ne, e1, e2) }
 

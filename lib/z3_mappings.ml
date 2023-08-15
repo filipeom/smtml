@@ -127,7 +127,7 @@ module Real = struct
         fun v1 v2 -> Boolean.mk_ite ctx (Arithmetic.mk_le ctx v1 v2) v1 v2
       | Max ->
         fun v1 v2 -> Boolean.mk_ite ctx (Arithmetic.mk_ge ctx v1 v2) v1 v2
-      | _ -> assert false
+      | Rem -> assert false
     in
     op' e1 e2
 
@@ -668,7 +668,7 @@ let maximize (o : optimize) (e : _ Expr.t) : Z3.Optimize.handle =
 let minimize (o : optimize) (e : _ Expr.t) : Z3.Optimize.handle =
   Z3.Optimize.minimize o (encode_expr e)
 
-let get_opt_model (o : optimize) : model Option.t = Z3.Optimize.get_model o
+let get_opt_model (o : optimize) : model option = Z3.Optimize.get_model o
 
 let set (s : string) (i : int) (n : char) =
   let bs = Bytes.of_string s in
@@ -716,6 +716,12 @@ let value_of_const (model : Z3.Model.model) (c : _ Expr.t) : Value.value option
   match Z3.Sort.get_sort_kind (Z3.Expr.get_sort e) with
   | Z3enums.INT_SORT ->
     Value.(V (Int (Int.of_string (Z3.Arithmetic.Integer.numeral_to_string e))))
+  | Z3enums.REAL_SORT ->
+    Value.(V (Real (Float.of_string (Z3.Arithmetic.Real.to_decimal_string e 6))))
+  | Z3enums.BOOL_SORT -> Value.(V (Bool (Bool.of_string (Z3.Expr.to_string e))))
+  | Z3enums.SEQ_SORT -> Value.(V (Str (Z3.Seq.get_string ctx e)))
+  | Z3enums.BV_SORT -> assert false (* TODO *)
+  | Z3enums.FLOATING_POINT_SORT -> assert false (* TODO *)
   | _ -> assert false
 
 (* let value_of_const (model : Z3.Model.model) (c : _ Expression.t) : _ Value.t option *)
@@ -746,18 +752,6 @@ let value_of_const (model : Z3.Model.model) (c : _ Expr.t) : Value.value option
 (*     | _ -> assert false *)
 (*   in *)
 (*   Option.map ~f interp *)
-
-(* let type_of_sort (sort : Z3.Sort.sort) : Type.expr_type = *)
-(*   match Z3.Sort.get_sort_kind sort with *)
-(*   | Z3enums.INT_SORT -> `IntType *)
-(*   | Z3enums.REAL_SORT -> `RealType *)
-(*   | Z3enums.BOOL_SORT -> `BoolType *)
-(*   | Z3enums.SEQ_SORT -> `StrType *)
-(*   | Z3enums.BV_SORT -> *)
-(*     if Z3.BitVector.get_size sort = 32 then `I32Type else `I64Type *)
-(*   | Z3enums.FLOATING_POINT_SORT -> *)
-(*     if Z3.FloatingPoint.get_sbits ctx sort = 23 then `F32Type else `F64Type *)
-(*   | _ -> assert false *)
 
 let symbols_of_model (model : Z3.Model.model) : Symbol.symbol list =
   let open Symbol in

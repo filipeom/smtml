@@ -4,7 +4,7 @@ module Make (Solver : Solver_intf.S) = struct
 
   type exec_state =
     { stmts : Ast.t list
-    ; smap : (string, Type.expr_type) Hashtbl.t
+    ; smap : (string, string) Hashtbl.t
     ; pc : bool Expr.t list
     ; solver : Solver.t
     }
