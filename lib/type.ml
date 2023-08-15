@@ -1,3 +1,5 @@
+module BV = Value.BV
+
 type _ ty =
   | IntTy : int ty
   | RealTy : float ty
@@ -29,8 +31,8 @@ type _ unop =
   | Flt : funop -> float unop
   | Bool : bunop -> bool unop
   | Str : sunop -> string unop
-  | I32 : iunop -> Num.t unop
-  | I64 : iunop -> Num.t unop
+  | I32 : iunop -> BV.t unop
+  | I64 : iunop -> BV.t unop
   | F32 : funop -> Num.t unop
   | F64 : funop -> Num.t unop
 
@@ -76,8 +78,8 @@ type _ binop =
   | Flt : fbinop -> float binop
   | Bool : bbinop -> bool binop
   | Str : sbinop -> string binop
-  | I32 : ibinop -> Num.t binop
-  | I64 : ibinop -> Num.t binop
+  | I32 : ibinop -> BV.t binop
+  | I64 : ibinop -> BV.t binop
   | F32 : fbinop -> Num.t binop
   | F64 : fbinop -> Num.t binop
 
@@ -110,8 +112,8 @@ type _ relop =
   | Flt : frelop -> float relop
   | Bool : brelop -> bool relop
   | Str : brelop -> string relop
-  | I32 : irelop -> Num.t relop
-  | I64 : irelop -> Num.t relop
+  | I32 : irelop -> BV.t relop
+  | I64 : irelop -> BV.t relop
   | F32 : frelop -> Num.t relop
   | F64 : frelop -> Num.t relop
 
@@ -123,16 +125,16 @@ type _ triop =
   | Str : striop -> string triop
 
 type (_, _) icvtop =
-  | TruncSF32 : (Num.t, Num.t) icvtop
-  | TruncUF32 : (Num.t, Num.t) icvtop
-  | TruncSF64 : (Num.t, Num.t) icvtop
-  | TruncUF64 : (Num.t, Num.t) icvtop
+  | TruncSF32 : (Num.t, BV.t) icvtop
+  | TruncUF32 : (Num.t, BV.t) icvtop
+  | TruncSF64 : (Num.t, BV.t) icvtop
+  | TruncUF64 : (Num.t, BV.t) icvtop
   | ReinterpretFloat : ('a, 'r) icvtop
-  | WrapI64 : (Num.t, Num.t) icvtop
-  | ExtendSI32 : (Num.t, Num.t) icvtop
-  | ExtendUI32 : (Num.t, Num.t) icvtop
-  | ToBool : (Num.t, bool) icvtop
-  | OfBool : (bool, Num.t) icvtop
+  | WrapI64 : (BV.t, BV.t) icvtop
+  | ExtendSI32 : (BV.t, BV.t) icvtop
+  | ExtendUI32 : (BV.t, BV.t) icvtop
+  | ToBool : (BV.t, bool) icvtop
+  | OfBool : (bool, BV.t) icvtop
   | ToString : ('a, string) icvtop
   | OfString : (string, 'r) icvtop
 

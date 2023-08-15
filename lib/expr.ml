@@ -29,7 +29,7 @@ let mk_symbol_str (x : string) : string t = Symbol (Symbol.mk_symbol_str x)
 let mk_symbol_num (x : string) : Num.t t = Symbol (Symbol.mk_symbol_num x)
 
 let ( ++ ) (e1 : _ t) (e2 : _ t) = Concat (e1, e2)
-let is_num (e : _ t) : bool = match e with Val (Num _) -> true | _ -> false
+(* let is_num (e : _ t) : bool = match e with Val (Num _) -> true | _ -> false *)
 let is_val (e : _ t) : bool = match e with Val _ -> true | _ -> false
 let is_unop (e : _ t) : bool = match e with Unop _ -> true | _ -> false
 let is_relop (e : _ t) : bool = match e with Relop _ -> true | _ -> false
@@ -237,14 +237,14 @@ let rec get_ptr : type a. a t -> Num.t option = function
     let p1 = get_ptr e1 in
     if Option.is_some p1 then p1 else get_ptr e2
 
-let concretize_ptr (e : Num.t t) : Num.t option =
-  (* TODO: this should work with symbolic pointers *)
-  (* would probably introduce Memory Objects here *)
-  let open Int32 in
-  match e with
-  | Val (Num n) -> Some n
-  | SymPtr (base, Val (Num (I32 offset))) -> Some (I32 (base + offset))
-  | _ -> None
+(* let concretize_ptr (e : Num.t t) : Num.t option = *)
+(*   (1* TODO: this should work with symbolic pointers *1) *)
+(*   (1* would probably introduce Memory Objects here *1) *)
+(*   let open Int32 in *)
+(*   match e with *)
+(*   | Val (Num n) -> Some n *)
+(*   | SymPtr (base, Val (Num (I32 offset))) -> Some (I32 (base + offset)) *)
+(*   | _ -> None *)
 
 let concretize_base_ptr (e : Num.t t) : int32 option =
   match e with SymPtr (base, _) -> Some base | _ -> None

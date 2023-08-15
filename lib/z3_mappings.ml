@@ -374,7 +374,7 @@ module F32 = struct
   let f322str = FuncDecl.mk_func_decl_s ctx "F32ToString" [ fp32_sort ] str_sort
   let str2f32 = FuncDecl.mk_func_decl_s ctx "StringToF32" [ str_sort ] fp32_sort
 
-  let encode_val f =
+  let _encode_val f =
     FloatingPoint.mk_numeral_f ctx (Int32.float_of_bits f) fp32_sort
 
   let encode_unop (op : funop) e =
@@ -442,7 +442,7 @@ module F64 = struct
   let f642str = FuncDecl.mk_func_decl_s ctx "F64ToString" [ fp64_sort ] str_sort
   let str2f64 = FuncDecl.mk_func_decl_s ctx "StringToF64" [ str_sort ] fp64_sort
 
-  let encode_val f =
+  let _encode_val f =
     FloatingPoint.mk_numeral_f ctx (Int64.float_of_bits f) fp64_sort
 
   let encode_unop (op : funop) e =
@@ -505,18 +505,23 @@ module F64 = struct
     op' e
 end
 
-let num i32 i64 f32 f64 : Num.t -> Z3.Expr.expr = function
-  | I32 x -> i32 x
-  | I64 x -> i64 x
-  | F32 x -> f32 x
-  | F64 x -> f64 x
+(* let num i32 i64 f32 f64 : Num.t -> Z3.Expr.expr = function *)
+(*   | I32 x -> i32 x *)
+(*   | I64 x -> i64 x *)
+(*   | F32 x -> f32 x *)
+(*   | F64 x -> f64 x *)
+
+let bv i32 i64 : Value.BV.t -> Z3.Expr.expr = function
+  | S32 x -> i32 x
+  | S64 x -> i64 x
 
 let encode_val : type a. a Value.t -> Z3.Expr.expr = function
   | Int v -> Integer.encode_val v
   | Real v -> Real.encode_val v
   | Bool v -> Boolean.encode_val v
   | Str v -> Str.encode_val v
-  | Num v -> num I32.encode_val I64.encode_val F32.encode_val F64.encode_val v
+  | Bv v -> bv I32.encode_val I64.encode_val v
+      (* num I32.encode_val I64.encode_val F32.encode_val F64.encode_val v *)
 
 let encode_unop : type a. a Type.unop -> Z3.Expr.expr -> Z3.Expr.expr = function
   | Int op -> Integer.encode_unop op
@@ -589,16 +594,16 @@ let encode_cvtop : type a r. (a, r) Type.cvtop -> Z3.Expr.expr -> Z3.Expr.expr =
 let rec encode_expr : type a. a Expr.t -> Z3.Expr.expr = function
   | Val v -> encode_val v
   | SymPtr (base, offset) ->
-    let base' = encode_val (Num (I32 base)) in
+    let base' = encode_val (Bv (S32 base)) in
     let offset' = encode_expr offset in
     I32.encode_binop Type.Add base' offset'
   | Unop (op, e) ->
     let e' = encode_expr e in
     encode_unop op e'
-  | Binop (I32 ExtendS, Val (Num (I32 n)), e) ->
+  | Binop (I32 ExtendS, Val (Bv (S32 n)), e) ->
     let e' = encode_expr e in
     Z3.BitVector.mk_sign_ext ctx (Int32.to_int_exn n) e'
-  | Binop (I32 ExtendU, Val (Num (I32 n)), e) ->
+  | Binop (I32 ExtendU, Val (Bv (S32 n)), e) ->
     let e' = encode_expr e in
     Z3.BitVector.mk_zero_ext ctx (Int32.to_int_exn n) e'
   | Binop (op, e1, e2) ->
