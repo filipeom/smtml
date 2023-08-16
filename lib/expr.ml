@@ -26,7 +26,12 @@ let mk_symbol_int (x : string) : int t = Symbol (Symbol.mk_symbol_int x)
 let mk_symbol_real (x : string) : float t = Symbol (Symbol.mk_symbol_real x)
 let mk_symbol_bool (x : string) : bool t = Symbol (Symbol.mk_symbol_bool x)
 let mk_symbol_str (x : string) : string t = Symbol (Symbol.mk_symbol_str x)
-let mk_symbol_num (x : string) : Num.t t = Symbol (Symbol.mk_symbol_num x)
+let mk_symbol_i32 (x : string) : Value.BV.t t = Symbol (Symbol.mk_symbol_i32 x)
+let mk_symbol_i64 (x : string) : Value.BV.t t = Symbol (Symbol.mk_symbol_i64 x)
+let mk_symbol_f32 (x : string) : Value.FP.t t = Symbol (Symbol.mk_symbol_f32 x)
+let mk_symbol_f64 (x : string) : Value.FP.t t = Symbol (Symbol.mk_symbol_f64 x)
+
+
 
 let ( ++ ) (e1 : _ t) (e2 : _ t) = Concat (e1, e2)
 (* let is_num (e : _ t) : bool = match e with Val (Num _) -> true | _ -> false *)
@@ -212,10 +217,10 @@ end
 (*   let pc' = String.concat ~sep:" " (List.map ~f:to_string pc) in *)
 (*   if List.length pc > 1 then sprintf "(and %s)" pc' else pc' *)
 
-let rec get_ptr : type a. a t -> Num.t option = function
+let rec get_ptr : type a. a t -> Value.BV.t option = function
   (* FIXME: this function can be "simplified" *)
   | Val _ -> None
-  | SymPtr (base, _) -> Some (I32 base)
+  | SymPtr (base, _) -> Some (S32 base)
   | Unop (_, e) -> get_ptr e
   | Binop (_, e1, e2) ->
     let p1 = get_ptr e1 in
@@ -246,7 +251,7 @@ let rec get_ptr : type a. a t -> Num.t option = function
 (*   | SymPtr (base, Val (Num (I32 offset))) -> Some (I32 (base + offset)) *)
 (*   | _ -> None *)
 
-let concretize_base_ptr (e : Num.t t) : int32 option =
+let concretize_base_ptr (e : Value.BV.t t) : int32 option =
   match e with SymPtr (base, _) -> Some base | _ -> None
 
 (* let to_bool : type a. a t -> bool t option = function *)

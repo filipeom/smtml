@@ -26,7 +26,10 @@ let mk_symbol (type a) (ty : a Type.ty) x : a Symbol.t =
   | Type.RealTy -> Symbol.mk_symbol_real x
   | Type.BoolTy -> Symbol.mk_symbol_bool x
   | Type.StrTy -> Symbol.mk_symbol_str x
-  | Type.NumTy -> assert false
+  | Type.BvTy S32 -> Symbol.mk_symbol_i32 x
+  | Type.BvTy S64 -> Symbol.mk_symbol_i64 x
+  | Type.FpTy S32 -> Symbol.mk_symbol_f32 x
+  | Type.FpTy S64 -> Symbol.mk_symbol_f64 x
 
 %}
 %token LPAREN
@@ -38,6 +41,8 @@ let mk_symbol (type a) (ty : a Type.ty) x : a Symbol.t =
 %token REAL_EQ REAL_NE REAL_LT REAL_LE REAL_GT REAL_GE
 %token BOOL_NOT BOOL_AND BOOL_OR BOOL_XOR BOOL_EQ BOOL_NE BOOL_ITE
 %token STR_LEN STR_TRIM STR_CONCAT STR_SUBSTR STR_EQ STR_NE
+%token I32_EQ I32_NE
+%token I64_EQ I64_NE
 %token INT_TYPE REAL_TYPE BOOL_TYPE STR_TYPE
 %token BV32_TYPE BV64_TYPE FP32_TYPE FP64_TYPE
 %token DECLARE_FUN ASSERT CHECK_SAT GET_MODEL
@@ -58,6 +63,27 @@ let script := stmts = list(stmt); EOF; { stmts }
 let stmt :=
   | LPAREN; DECLARE_FUN; x = SYMBOL; INT_TYPE; RPAREN; {
       Ast.Declare (Symbol.Sym (mk_symbol Type.IntTy x))
+    }
+  | LPAREN; DECLARE_FUN; x = SYMBOL; REAL_TYPE; RPAREN; {
+      Ast.Declare (Symbol.Sym (mk_symbol Type.RealTy x))
+    }
+  | LPAREN; DECLARE_FUN; x = SYMBOL; BOOL_TYPE; RPAREN; {
+      Ast.Declare (Symbol.Sym (mk_symbol Type.BoolTy x))
+    }
+  | LPAREN; DECLARE_FUN; x = SYMBOL; STR_TYPE; RPAREN; {
+      Ast.Declare (Symbol.Sym (mk_symbol Type.StrTy x))
+    }
+  | LPAREN; DECLARE_FUN; x = SYMBOL; BV32_TYPE; RPAREN; {
+      Ast.Declare (Symbol.Sym (mk_symbol (Type.BvTy S32) x))
+    }
+  | LPAREN; DECLARE_FUN; x = SYMBOL; BV64_TYPE; RPAREN; {
+      Ast.Declare (Symbol.Sym (mk_symbol (Type.BvTy S64) x))
+    }
+  | LPAREN; DECLARE_FUN; x = SYMBOL; FP32_TYPE; RPAREN; {
+      Ast.Declare (Symbol.Sym (mk_symbol (Type.FpTy S32) x))
+    }
+  | LPAREN; DECLARE_FUN; x = SYMBOL; FP64_TYPE; RPAREN; {
+      Ast.Declare (Symbol.Sym (mk_symbol (Type.FpTy S64) x))
     }
   | LPAREN; ASSERT; ~ = bexpr; RPAREN; { Ast.Assert bexpr }
   | LPAREN; CHECK_SAT; RPAREN; { Ast.CheckSat }
@@ -99,8 +125,12 @@ let sexpr :=
   | LPAREN; STR_SUBSTR; e1 = sexpr; e2 = iexpr; e3 = iexpr; RPAREN;
     { Triop (Str Sub_str, e1, e2, e3) }
 
+let bvexpr :=
+  | LPAREN; BV32_TYPE; n = NUM; RPAREN; { Val (Bv (S32 (Int32.of_int_trunc n))) }
+  | LPAREN; BV64_TYPE; n = NUM; RPAREN; { Val (Bv (S64 (Int64.of_int n))) }
+
 let bexpr :=
-  | v = BOOL; { Val (Value.Bool v) }
+  | v = BOOL; { Val (Bool v) }
   | x = SYMBOL; { Symbol (mk_symbol Type.BoolTy x) }
   | LPAREN; BOOL_NOT; e = bexpr; RPAREN; { Unop (Bool Not, e) }
   | LPAREN; BOOL_AND; e1 = bexpr; e2 = bexpr; RPAREN; { Binop (Bool And, e1, e2) }
@@ -124,19 +154,12 @@ let bexpr :=
   | LPAREN; REAL_GE; e1 = fexpr; e2 = fexpr; RPAREN; { Relop (Flt Ge, e1, e2) }
   | LPAREN; STR_EQ; e1 = sexpr; e2 = sexpr; RPAREN; { Relop (Str Eq, e1, e2) }
   | LPAREN; STR_NE; e1 = sexpr; e2 = sexpr; RPAREN; { Relop (Str Ne, e1, e2) }
+  | LPAREN; I32_EQ; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S32 Eq), e1, e2) }
+  | LPAREN; I32_NE; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S32 Ne), e1, e2) }
+  | LPAREN; I64_EQ; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 Eq), e1, e2) }
+  | LPAREN; I64_NE; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 Ne), e1, e2) }
 
 (* spec_constant : *)
-(*   | NUM { Ast.Int $1 } *)
-(*   | DEC { Ast.Real $1 } *)
-(*   | STR { Ast.Str $1 } *)
-(*   | BOOL { Ast.Bool $1 } *)
-(*   | LPAREN; TYPE; NUM; RPAREN *)
-(*     { *)
-(*       match $2 with *)
-(*       | `I32Type -> Ast.Num (I32 (Int32.of_int_trunc $3)) *)
-(*       | `I64Type -> Ast.Num (I64 (Int64.of_int $3)) *)
-(*       | _ -> failwith "invalid integer type" *)
-(*     } *)
 (*   | LPAREN; TYPE; DEC; RPAREN *)
 (*     { *)
 (*       match $2 with *)

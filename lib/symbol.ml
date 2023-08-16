@@ -7,7 +7,10 @@ let mk_symbol_int (name : string) : int t = S (Type.IntTy, name)
 let mk_symbol_real (name : string) : float t = S (Type.RealTy, name)
 let mk_symbol_bool (name : string) : bool t = S (Type.BoolTy, name)
 let mk_symbol_str (name : string) : string t = S (Type.StrTy, name)
-let mk_symbol_num (name : string) : Num.t t = S (Type.NumTy, name)
+let mk_symbol_i32 (name : string) : Value.BV.t t = S (Type.(BvTy S32), name)
+let mk_symbol_i64 (name : string) : Value.BV.t t = S (Type.(BvTy S64), name)
+let mk_symbol_f32 (name : string) : Value.FP.t t = S (Type.(FpTy S32), name)
+let mk_symbol_f64 (name : string) : Value.FP.t t = S (Type.(FpTy S64), name)
 
 let equal (type a) (S (_, x1) : a t) (S (_, x2) : a t) : bool =
   String.equal x1 x2

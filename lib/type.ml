@@ -1,11 +1,15 @@
 module BV = Value.BV
+module FP = Value.FP
+
+type sz = S32 | S64
 
 type _ ty =
   | IntTy : int ty
   | RealTy : float ty
   | BoolTy : bool ty
-  | NumTy : Num.t ty
   | StrTy : string ty
+  | BvTy : sz -> BV.t ty
+  | FpTy : sz -> FP.t ty
 
 type iunop =
   | Neg
@@ -31,10 +35,8 @@ type _ unop =
   | Flt : funop -> float unop
   | Bool : bunop -> bool unop
   | Str : sunop -> string unop
-  | I32 : iunop -> BV.t unop
-  | I64 : iunop -> BV.t unop
-  | F32 : funop -> Num.t unop
-  | F64 : funop -> Num.t unop
+  | Bv : (iunop, iunop) BV.op -> BV.t unop
+  | Fp : (funop, funop) BV.op -> BV.t unop
 
 type ibinop =
   | Add
@@ -78,10 +80,8 @@ type _ binop =
   | Flt : fbinop -> float binop
   | Bool : bbinop -> bool binop
   | Str : sbinop -> string binop
-  | I32 : ibinop -> BV.t binop
-  | I64 : ibinop -> BV.t binop
-  | F32 : fbinop -> Num.t binop
-  | F64 : fbinop -> Num.t binop
+  | Bv : (ibinop, ibinop) BV.op -> BV.t binop
+  | Fp : (fbinop, fbinop) BV.op -> FP.t binop
 
 type irelop =
   | Eq
@@ -112,10 +112,8 @@ type _ relop =
   | Flt : frelop -> float relop
   | Bool : brelop -> bool relop
   | Str : brelop -> string relop
-  | I32 : irelop -> BV.t relop
-  | I64 : irelop -> BV.t relop
-  | F32 : frelop -> Num.t relop
-  | F64 : frelop -> Num.t relop
+  | Bv : (irelop, irelop) BV.op -> BV.t relop
+  | Fp : (frelop, frelop) FP.op -> FP.t relop
 
 type btriop = Ite
 type striop = Sub_str
@@ -125,10 +123,10 @@ type _ triop =
   | Str : striop -> string triop
 
 type (_, _) icvtop =
-  | TruncSF32 : (Num.t, BV.t) icvtop
-  | TruncUF32 : (Num.t, BV.t) icvtop
-  | TruncSF64 : (Num.t, BV.t) icvtop
-  | TruncUF64 : (Num.t, BV.t) icvtop
+  | TruncSF32 : (FP.t, BV.t) icvtop
+  | TruncUF32 : (FP.t, BV.t) icvtop
+  | TruncSF64 : (FP.t, BV.t) icvtop
+  | TruncUF64 : (FP.t, BV.t) icvtop
   | ReinterpretFloat : ('a, 'r) icvtop
   | WrapI64 : (BV.t, BV.t) icvtop
   | ExtendSI32 : (BV.t, BV.t) icvtop
@@ -139,23 +137,21 @@ type (_, _) icvtop =
   | OfString : (string, 'r) icvtop
 
 type (_, _) fcvtop =
-  | DemoteF64 : (Num.t, Num.t) fcvtop
-  | ConvertSI32 : (Num.t, Num.t) fcvtop
-  | ConvertUI32 : (Num.t, Num.t) fcvtop
-  | ConvertSI64 : (Num.t, Num.t) fcvtop
-  | ConvertUI64 : (Num.t, Num.t) fcvtop
-  | ReinterpretInt : (Num.t, Num.t) fcvtop
-  | PromoteF32 : (Num.t, Num.t) fcvtop
+  | DemoteF64 : (FP.t, FP.t) fcvtop
+  | ConvertSI32 : (BV.t, FP.t) fcvtop
+  | ConvertUI32 : (BV.t, FP.t) fcvtop
+  | ConvertSI64 : (BV.t, FP.t) fcvtop
+  | ConvertUI64 : (BV.t, FP.t) fcvtop
+  | ReinterpretInt : (BV.t, FP.t) fcvtop
+  | PromoteF32 : (FP.t, FP.t) fcvtop
   | ToString : ('a, string) fcvtop
   | OfString : (string, 'r) fcvtop
 
 type (_, _) cvtop =
   | Int : ('a, 'r) icvtop -> ('a, 'r) cvtop
   | Flt : ('a, 'r) fcvtop -> ('a, 'r) cvtop
-  | I32 : ('a, 'r) icvtop -> ('a, 'r) cvtop
-  | I64 : ('a, 'r) icvtop -> ('a, 'r) cvtop
-  | F32 : ('a, 'r) fcvtop -> ('a, 'r) cvtop
-  | F64 : ('a, 'r) fcvtop -> ('a, 'r) cvtop
+  | Bv : (('a, 'r) icvtop, ('a, 'r) icvtop) BV.op -> ('a, 'r) cvtop
+  | Fp : (('a, 'r) fcvtop, ('a, 'r) fcvtop) FP.op -> ('a, 'r) cvtop
 
 module Pp : sig
   val pp_ty : _ ty -> string
@@ -165,13 +161,18 @@ module Pp : sig
   val pp_triop : _ triop -> string
   val pp_cvtop : (_, _) cvtop -> string
 end = struct
+  let pp_sz = function
+    | S32 -> "32"
+    | S64 -> "64"
+
   let pp_ty (type a) (ty : a ty) : string =
     match ty with
     | IntTy -> "int"
     | RealTy -> "real"
     | BoolTy -> "bool"
     | StrTy -> "str"
-    | NumTy -> "num"
+    | BvTy sz -> Format.sprintf "i%s" (pp_sz sz)
+    | FpTy sz -> Format.sprintf "f%s" (pp_sz sz)
 
   let pp_iunop : iunop -> string = function Neg -> "neg" | Not -> "not"
 
@@ -192,10 +193,14 @@ end = struct
     | Str op ->
       let op' = match op with Len -> "len" | Trim -> "trim" in
       Format.sprintf "str.%s" op'
-    | I32 op -> Format.sprintf "i32.%s" (pp_iunop op)
-    | I64 op -> Format.sprintf "i64.%s" (pp_iunop op)
-    | F32 op -> Format.sprintf "f32.%s" (pp_funop op)
-    | F64 op -> Format.sprintf "f64.%s" (pp_funop op)
+    | Bv op -> (
+        match op with
+        | S32 op -> Format.sprintf "i32.%s" (pp_iunop op)
+        | S64 op -> Format.sprintf "i64.%s" (pp_iunop op))
+    | Fp op -> (
+        match op with
+        | S32 op -> Format.sprintf "f32.%s" (pp_funop op)
+        | S64 op -> Format.sprintf "f64.%s" (pp_funop op))
 
   let pp_binop _ = assert false
   let pp_relop _ = assert false
