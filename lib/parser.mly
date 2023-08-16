@@ -41,8 +41,12 @@ let mk_symbol (type a) (ty : a Type.ty) x : a Symbol.t =
 %token REAL_EQ REAL_NE REAL_LT REAL_LE REAL_GT REAL_GE
 %token BOOL_NOT BOOL_AND BOOL_OR BOOL_XOR BOOL_EQ BOOL_NE BOOL_ITE
 %token STR_LEN STR_TRIM STR_CONCAT STR_SUBSTR STR_EQ STR_NE
-%token I32_EQ I32_NE
-%token I64_EQ I64_NE
+%token I32_NOT I32_NEG I32_ADD I32_SUB I32_DIV I32_DIVU I32_AND I32_ROTR
+%token I32_OR I32_XOR I32_MUL I32_SHL I32_SHR I32_SHRU I32_REM I32_REMU I32_ROTL
+%token I32_EQ I32_NE I32_LT I32_LTU I32_LE I32_LEU I32_GT I32_GTU I32_GE I32_GEU
+%token I64_NOT I64_NEG I64_ADD I64_SUB I64_DIV I64_DIVU I64_AND I64_ROTR
+%token I64_OR I64_XOR I64_MUL I64_SHL I64_SHR I64_SHRU I64_REM I64_REMU I64_ROTL
+%token I64_EQ I64_NE I64_LT I64_LTU I64_LE I64_LEU I64_GT I64_GTU I64_GE I64_GEU
 %token INT_TYPE REAL_TYPE BOOL_TYPE STR_TYPE
 %token BV32_TYPE BV64_TYPE FP32_TYPE FP64_TYPE
 %token DECLARE_FUN ASSERT CHECK_SAT GET_MODEL
@@ -127,7 +131,41 @@ let sexpr :=
 
 let bvexpr :=
   | LPAREN; BV32_TYPE; n = NUM; RPAREN; { Val (Bv (S32 (Int32.of_int_trunc n))) }
+  | LPAREN; I32_NOT; ~ = bvexpr; RPAREN; { Unop (Bv (S32 Not), bvexpr) }
+  | LPAREN; I32_NEG; ~ = bvexpr; RPAREN; { Unop (Bv (S32 Neg), bvexpr) }
+  | LPAREN; I32_ADD; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 Add), e1, e2) }
+  | LPAREN; I32_SUB; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 Sub), e1, e2) }
+  | LPAREN; I32_DIV; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 Div), e1, e2) }
+  | LPAREN; I32_DIVU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 DivU), e1, e2) }
+  | LPAREN; I32_AND; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 And), e1, e2) }
+  | LPAREN; I32_OR; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 Or), e1, e2) }
+  | LPAREN; I32_XOR; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 Xor), e1, e2) }
+  | LPAREN; I32_MUL; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 Mul), e1, e2) }
+  | LPAREN; I32_SHL; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 Shl), e1, e2) }
+  | LPAREN; I32_SHR; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 Shr), e1, e2) }
+  | LPAREN; I32_SHRU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 ShrU), e1, e2) }
+  | LPAREN; I32_REM; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 Rem), e1, e2) }
+  | LPAREN; I32_REMU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 RemU), e1, e2) }
+  | LPAREN; I32_ROTL; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 Rotl), e1, e2) }
+  | LPAREN; I32_ROTR; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S32 Rotr), e1, e2) }
   | LPAREN; BV64_TYPE; n = NUM; RPAREN; { Val (Bv (S64 (Int64.of_int n))) }
+  | LPAREN; I64_NOT; ~ = bvexpr; RPAREN; { Unop (Bv (S64 Not), bvexpr) }
+  | LPAREN; I64_NEG; ~ = bvexpr; RPAREN; { Unop (Bv (S64 Neg), bvexpr) }
+  | LPAREN; I64_ADD; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 Add), e1, e2) }
+  | LPAREN; I64_SUB; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 Sub), e1, e2) }
+  | LPAREN; I64_DIV; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 Div), e1, e2) }
+  | LPAREN; I64_DIVU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 DivU), e1, e2) }
+  | LPAREN; I64_AND; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 And), e1, e2) }
+  | LPAREN; I64_OR; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 Or), e1, e2) }
+  | LPAREN; I64_XOR; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 Xor), e1, e2) }
+  | LPAREN; I64_MUL; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 Mul), e1, e2) }
+  | LPAREN; I64_SHL; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 Shl), e1, e2) }
+  | LPAREN; I64_SHR; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 Shr), e1, e2) }
+  | LPAREN; I64_SHRU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 ShrU), e1, e2) }
+  | LPAREN; I64_REM; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 Rem), e1, e2) }
+  | LPAREN; I64_REMU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 RemU), e1, e2) }
+  | LPAREN; I64_ROTL; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 Rotl), e1, e2) }
+  | LPAREN; I64_ROTR; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 Rotr), e1, e2) }
 
 let bexpr :=
   | v = BOOL; { Val (Bool v) }
@@ -156,8 +194,24 @@ let bexpr :=
   | LPAREN; STR_NE; e1 = sexpr; e2 = sexpr; RPAREN; { Relop (Str Ne, e1, e2) }
   | LPAREN; I32_EQ; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S32 Eq), e1, e2) }
   | LPAREN; I32_NE; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S32 Ne), e1, e2) }
+  | LPAREN; I32_LT; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S32 Lt), e1, e2) }
+  | LPAREN; I32_LE; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S32 Le), e1, e2) }
+  | LPAREN; I32_GT; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S32 Gt), e1, e2) }
+  | LPAREN; I32_GE; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S32 Ge), e1, e2) }
+  | LPAREN; I32_LTU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S32 LtU), e1, e2) }
+  | LPAREN; I32_LEU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S32 LeU), e1, e2) }
+  | LPAREN; I32_GTU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S32 GtU), e1, e2) }
+  | LPAREN; I32_GEU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S32 GeU), e1, e2) }
   | LPAREN; I64_EQ; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 Eq), e1, e2) }
   | LPAREN; I64_NE; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 Ne), e1, e2) }
+  | LPAREN; I64_LT; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 Lt), e1, e2) }
+  | LPAREN; I64_LE; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 Le), e1, e2) }
+  | LPAREN; I64_GT; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 Gt), e1, e2) }
+  | LPAREN; I64_GE; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 Ge), e1, e2) }
+  | LPAREN; I64_LTU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 LtU), e1, e2) }
+  | LPAREN; I64_LEU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 LeU), e1, e2) }
+  | LPAREN; I64_GTU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 GtU), e1, e2) }
+  | LPAREN; I64_GEU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 GeU), e1, e2) }
 
 (* spec_constant : *)
 (*   | LPAREN; TYPE; DEC; RPAREN *)
