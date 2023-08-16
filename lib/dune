@@ -1,5 +1,6 @@
 (ocamllex
  (modules lexer))
+
 (menhir
  (modules parser))
 
@@ -22,8 +23,7 @@
   parser
   run
   interpret_intf
-  interpret
- )
+  interpret)
  (libraries core z3)
  (preprocess
   (pps ppx_jane)))

@@ -1,7 +1,9 @@
 module BV = Value.BV
 module FP = Value.FP
 
-type sz = S32 | S64
+type sz =
+  | S32
+  | S64
 
 type _ ty =
   | IntTy : int ty
@@ -161,9 +163,7 @@ module Pp : sig
   val pp_triop : _ triop -> string
   val pp_cvtop : (_, _) cvtop -> string
 end = struct
-  let pp_sz = function
-    | S32 -> "32"
-    | S64 -> "64"
+  let pp_sz = function S32 -> "32" | S64 -> "64"
 
   let pp_ty (type a) (ty : a ty) : string =
     match ty with
@@ -194,13 +194,13 @@ end = struct
       let op' = match op with Len -> "len" | Trim -> "trim" in
       Format.sprintf "str.%s" op'
     | Bv op -> (
-        match op with
-        | S32 op -> Format.sprintf "i32.%s" (pp_iunop op)
-        | S64 op -> Format.sprintf "i64.%s" (pp_iunop op))
+      match op with
+      | S32 op -> Format.sprintf "i32.%s" (pp_iunop op)
+      | S64 op -> Format.sprintf "i64.%s" (pp_iunop op) )
     | Fp op -> (
-        match op with
-        | S32 op -> Format.sprintf "f32.%s" (pp_funop op)
-        | S64 op -> Format.sprintf "f64.%s" (pp_funop op))
+      match op with
+      | S32 op -> Format.sprintf "f32.%s" (pp_funop op)
+      | S64 op -> Format.sprintf "f64.%s" (pp_funop op) )
 
   let pp_binop _ = assert false
   let pp_relop _ = assert false

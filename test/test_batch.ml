@@ -2,13 +2,9 @@ open Encoding
 module Batch = Batch.Make (Z3_mappings)
 
 let solver = Batch.create ()
-
 let symb_x = Symbol.mk_symbol `IntType "x"
-
 let symb_y = Symbol.mk_symbol `BoolType "y"
-
 let x = Expression.mk_symbol symb_x
-
 let y = Expression.mk_symbol symb_y
 
 (* check *)
@@ -21,7 +17,7 @@ let%test "check-constrained" =
 let%test "eval-unconstrained" =
   assert (Batch.check solver []);
   (*let m = Batch.model solver in
-  Option.is_some @@ Model.evaluate (Option.value_exn m) symb_x
+    Option.is_some @@ Model.evaluate (Option.value_exn m) symb_x
   *)
   false
 

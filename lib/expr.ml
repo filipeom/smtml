@@ -30,10 +30,8 @@ let mk_symbol_i32 (x : string) : Value.BV.t t = Symbol (Symbol.mk_symbol_i32 x)
 let mk_symbol_i64 (x : string) : Value.BV.t t = Symbol (Symbol.mk_symbol_i64 x)
 let mk_symbol_f32 (x : string) : Value.FP.t t = Symbol (Symbol.mk_symbol_f32 x)
 let mk_symbol_f64 (x : string) : Value.FP.t t = Symbol (Symbol.mk_symbol_f64 x)
-
-
-
 let ( ++ ) (e1 : _ t) (e2 : _ t) = Concat (e1, e2)
+
 (* let is_num (e : _ t) : bool = match e with Val (Num _) -> true | _ -> false *)
 let is_val (e : _ t) : bool = match e with Val _ -> true | _ -> false
 let is_unop (e : _ t) : bool = match e with Unop _ -> true | _ -> false
