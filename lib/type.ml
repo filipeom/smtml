@@ -36,7 +36,7 @@ type _ unop =
   | Bool : bunop -> bool unop
   | Str : sunop -> string unop
   | Bv : (iunop, iunop) BV.op -> BV.t unop
-  | Fp : (funop, funop) BV.op -> BV.t unop
+  | Fp : (funop, funop) FP.op -> FP.t unop
 
 type ibinop =
   | Add
@@ -81,7 +81,7 @@ type _ binop =
   | Bool : bbinop -> bool binop
   | Str : sbinop -> string binop
   | Bv : (ibinop, ibinop) BV.op -> BV.t binop
-  | Fp : (fbinop, fbinop) BV.op -> FP.t binop
+  | Fp : (fbinop, fbinop) FP.op -> FP.t binop
 
 type irelop =
   | Eq

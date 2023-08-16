@@ -2,23 +2,10 @@
 open Core
 open Expr
 
-exception Invalid_type of string
+(* let varmap = Hashtbl.create (module String) *)
 
-let varmap : (string, string) Hashtbl.t = Hashtbl.create (module String)
-
-let add_bind x t = Hashtbl.set varmap ~key:x ~data:t
-let get_bind x = Hashtbl.find varmap x
-
-let _validate_bind (type a) (ty : a Type.ty) x : unit =
-  let ty = Type.Pp.pp_ty ty in
-  match get_bind x with
-  | None -> add_bind x ty
-  | Some ty' ->
-    if not (String.equal ty ty') then
-      let msg =
-        sprintf "Const '%s' of type '%s' cannot be used as '%s'!" x ty' ty
-      in
-      raise (Invalid_type msg)
+(* let add_bind x t = Hashtbl.set varmap ~key:x ~data:t *)
+(* let get_bind x = Hashtbl.find varmap x *)
 
 let mk_symbol (type a) (ty : a Type.ty) x : a Symbol.t =
   match ty with
@@ -30,7 +17,6 @@ let mk_symbol (type a) (ty : a Type.ty) x : a Symbol.t =
   | Type.BvTy S64 -> Symbol.mk_symbol_i64 x
   | Type.FpTy S32 -> Symbol.mk_symbol_f32 x
   | Type.FpTy S64 -> Symbol.mk_symbol_f64 x
-
 %}
 %token LPAREN
 %token RPAREN
@@ -47,6 +33,10 @@ let mk_symbol (type a) (ty : a Type.ty) x : a Symbol.t =
 %token I64_NOT I64_NEG I64_ADD I64_SUB I64_DIV I64_DIVU I64_AND I64_ROTR
 %token I64_OR I64_XOR I64_MUL I64_SHL I64_SHR I64_SHRU I64_REM I64_REMU I64_ROTL
 %token I64_EQ I64_NE I64_LT I64_LTU I64_LE I64_LEU I64_GT I64_GTU I64_GE I64_GEU
+%token F32_NEG F32_ABS F32_SQRT F32_NEAREST F32_IS_NAN F32_ADD F32_SUB F32_MUL
+%token F32_DIV F32_MIN F32_MAX F32_REM F32_EQ F32_NE F32_LT F32_LE F32_GT F32_GE
+%token F64_NEG F64_ABS F64_SQRT F64_NEAREST F64_IS_NAN F64_ADD F64_SUB F64_MUL
+%token F64_DIV F64_MIN F64_MAX F64_REM F64_EQ F64_NE F64_LT F64_LE F64_GT F64_GE
 %token INT_TYPE REAL_TYPE BOOL_TYPE STR_TYPE
 %token BV32_TYPE BV64_TYPE FP32_TYPE FP64_TYPE
 %token DECLARE_FUN ASSERT CHECK_SAT GET_MODEL
@@ -167,6 +157,34 @@ let bvexpr :=
   | LPAREN; I64_ROTL; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 Rotl), e1, e2) }
   | LPAREN; I64_ROTR; e1 = bvexpr; e2 = bvexpr; RPAREN; { Binop (Bv (S64 Rotr), e1, e2) }
 
+let fpexpr :=
+  | LPAREN; FP32_TYPE; n = DEC; RPAREN; { Val (Fp (S32 (Int32.bits_of_float n))) }
+  | LPAREN; F32_NEG; ~ = fpexpr; RPAREN; { Unop (Fp (S32 Neg), fpexpr) }
+  | LPAREN; F32_ABS; ~ = fpexpr; RPAREN; { Unop (Fp (S32 Abs), fpexpr) }
+  | LPAREN; F32_SQRT; ~ = fpexpr; RPAREN; { Unop (Fp (S32 Sqrt), fpexpr) }
+  | LPAREN; F32_NEAREST; ~ = fpexpr; RPAREN; { Unop (Fp (S32 Nearest), fpexpr) }
+  | LPAREN; F32_IS_NAN; ~ = fpexpr; RPAREN; { Unop (Fp (S32 Is_nan), fpexpr) }
+  | LPAREN; F32_ADD; e1 = fpexpr; e2 = fpexpr; RPAREN; { Binop (Fp (S32 Add), e1, e2) }
+  | LPAREN; F32_SUB; e1 = fpexpr; e2 = fpexpr; RPAREN; { Binop (Fp (S32 Sub), e1, e2) }
+  | LPAREN; F32_DIV; e1 = fpexpr; e2 = fpexpr; RPAREN; { Binop (Fp (S32 Div), e1, e2) }
+  | LPAREN; F32_MUL; e1 = fpexpr; e2 = fpexpr; RPAREN; { Binop (Fp (S32 Mul), e1, e2) }
+  | LPAREN; F32_REM; e1 = fpexpr; e2 = fpexpr; RPAREN; { Binop (Fp (S32 Rem), e1, e2) }
+  | LPAREN; F32_MIN; e1 = fpexpr; e2 = fpexpr; RPAREN; { Binop (Fp (S32 Min), e1, e2) }
+  | LPAREN; F32_MAX; e1 = fpexpr; e2 = fpexpr; RPAREN; { Binop (Fp (S32 Max), e1, e2) }
+  | LPAREN; FP64_TYPE; n = DEC; RPAREN; { Val (Fp (S64 (Int64.bits_of_float n))) }
+  | LPAREN; F64_NEG; ~ = fpexpr; RPAREN; { Unop (Fp (S64 Neg), fpexpr) }
+  | LPAREN; F64_ABS; ~ = fpexpr; RPAREN; { Unop (Fp (S64 Abs), fpexpr) }
+  | LPAREN; F64_SQRT; ~ = fpexpr; RPAREN; { Unop (Fp (S64 Sqrt), fpexpr) }
+  | LPAREN; F64_NEAREST; ~ = fpexpr; RPAREN; { Unop (Fp (S64 Nearest), fpexpr) }
+  | LPAREN; F64_IS_NAN; ~ = fpexpr; RPAREN; { Unop (Fp (S64 Is_nan), fpexpr) }
+  | LPAREN; F64_ADD; e1 = fpexpr; e2 = fpexpr; RPAREN; { Binop (Fp (S64 Add), e1, e2) }
+  | LPAREN; F64_SUB; e1 = fpexpr; e2 = fpexpr; RPAREN; { Binop (Fp (S64 Sub), e1, e2) }
+  | LPAREN; F64_DIV; e1 = fpexpr; e2 = fpexpr; RPAREN; { Binop (Fp (S64 Div), e1, e2) }
+  | LPAREN; F64_MUL; e1 = fpexpr; e2 = fpexpr; RPAREN; { Binop (Fp (S64 Mul), e1, e2) }
+  | LPAREN; F64_REM; e1 = fpexpr; e2 = fpexpr; RPAREN; { Binop (Fp (S64 Rem), e1, e2) }
+  | LPAREN; F64_MIN; e1 = fpexpr; e2 = fpexpr; RPAREN; { Binop (Fp (S64 Min), e1, e2) }
+  | LPAREN; F64_MAX; e1 = fpexpr; e2 = fpexpr; RPAREN; { Binop (Fp (S64 Max), e1, e2) }
+
 let bexpr :=
   | v = BOOL; { Val (Bool v) }
   | x = SYMBOL; { Symbol (mk_symbol Type.BoolTy x) }
@@ -212,13 +230,15 @@ let bexpr :=
   | LPAREN; I64_LEU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 LeU), e1, e2) }
   | LPAREN; I64_GTU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 GtU), e1, e2) }
   | LPAREN; I64_GEU; e1 = bvexpr; e2 = bvexpr; RPAREN; { Relop (Bv (S64 GeU), e1, e2) }
-
-(* spec_constant : *)
-(*   | LPAREN; TYPE; DEC; RPAREN *)
-(*     { *)
-(*       match $2 with *)
-(*       | `F32Type -> Ast.Num (F32 (Int32.bits_of_float $3)) *)
-(*       | `F64Type -> Ast.Num (F64 (Int64.bits_of_float $3)) *)
-(*       | _ -> failwith "invalid integer type" *)
-(*     } *)
-(*   ; *)
+  | LPAREN; F32_EQ; e1 = fpexpr; e2 = fpexpr; RPAREN; { Relop (Fp (S32 Eq), e1, e2) }
+  | LPAREN; F32_NE; e1 = fpexpr; e2 = fpexpr; RPAREN; { Relop (Fp (S32 Ne), e1, e2) }
+  | LPAREN; F32_LT; e1 = fpexpr; e2 = fpexpr; RPAREN; { Relop (Fp (S32 Lt), e1, e2) }
+  | LPAREN; F32_LE; e1 = fpexpr; e2 = fpexpr; RPAREN; { Relop (Fp (S32 Le), e1, e2) }
+  | LPAREN; F32_GT; e1 = fpexpr; e2 = fpexpr; RPAREN; { Relop (Fp (S32 Gt), e1, e2) }
+  | LPAREN; F32_GE; e1 = fpexpr; e2 = fpexpr; RPAREN; { Relop (Fp (S32 Ge), e1, e2) }
+  | LPAREN; F64_EQ; e1 = fpexpr; e2 = fpexpr; RPAREN; { Relop (Fp (S64 Eq), e1, e2) }
+  | LPAREN; F64_NE; e1 = fpexpr; e2 = fpexpr; RPAREN; { Relop (Fp (S64 Ne), e1, e2) }
+  | LPAREN; F64_LT; e1 = fpexpr; e2 = fpexpr; RPAREN; { Relop (Fp (S64 Lt), e1, e2) }
+  | LPAREN; F64_LE; e1 = fpexpr; e2 = fpexpr; RPAREN; { Relop (Fp (S64 Le), e1, e2) }
+  | LPAREN; F64_GT; e1 = fpexpr; e2 = fpexpr; RPAREN; { Relop (Fp (S64 Gt), e1, e2) }
+  | LPAREN; F64_GE; e1 = fpexpr; e2 = fpexpr; RPAREN; { Relop (Fp (S64 Ge), e1, e2) }
