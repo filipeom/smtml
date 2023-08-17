@@ -10,7 +10,7 @@ exception InvalidRelop
 type _ t =
   | Val : 'a Value.t -> 'a t
   | SymPtr : int32 * 'a t -> 'a t
-  | Unop : 'a unop * 'b t -> 'a t
+  | Unop : 'a unop * 'a t -> 'a t
   | Binop : 'a binop * 'a t * 'a t -> 'a t
   | Relop : 'a relop * 'a t * 'a t -> bool t
   | Cvtop : ('a, 'b) cvtop * 'a t -> 'b t
@@ -66,6 +66,26 @@ let is_concrete (e : _ t) : bool =
 (*       && equal e1 e2 *)
 (*       && List.equal (List.equal equal) p1 p2 *)
 (*    | _ -> false *)
+
+let negate (e : bool t) : bool t =
+  match e with
+  | Val (Bool b) -> Val (Bool (not b))
+  | Symbol x -> Unop (Bool Not, Symbol x)
+  | Unop (Bool Not, e) -> e
+  | Binop _ -> assert false (* TODO *)
+  | Relop (op, e1, e2) -> (
+    match op with
+    | Int op -> Relop (Int (negate_irelop op), e1, e2)
+    | Flt op -> Relop (Flt (negate_frelop op), e1, e2)
+    | Bool op -> Relop (Bool (negate_brelop op), e1, e2)
+    | Str op -> Relop (Str (negate_brelop op), e1, e2)
+    | Bv (S32 op) -> Relop (Bv (S32 (negate_irelop op)), e1, e2)
+    | Bv (S64 op) -> Relop (Bv (S64 (negate_irelop op)), e1, e2)
+    | Fp (S32 op) -> Relop (Fp (S32 (negate_frelop op)), e1, e2)
+    | Fp (S64 op) -> Relop (Fp (S64 (negate_frelop op)), e1, e2))
+  | Cvtop _ -> assert false (* TODO *)
+  | Triop _ -> assert false (* TODO *)
+  | SymPtr _ | Extract _ | Concat _ -> assert false
 
 let rec length : type a. a t -> int = function
   | Val _ -> 1
@@ -186,20 +206,6 @@ end
 (*   | Symbol s -> Symbol.type_of s *)
 (*   | Extract (_, _h, _l) -> assert false *)
 (*   | Concat (_e1, _e2) -> assert false *)
-
-(* let negate_relop (type a) (e : a t) : a t = *)
-(*   match e with *)
-(*   | Relop (op, e1, e2) -> ( *)
-(*     match op with *)
-(*     | Int op' -> Relop (Int (I.neg_relop op'), e1, e2) *)
-(*     | Real op' -> Relop (Real (R.neg_relop op'), e1, e2) *)
-(*     | Bool op' -> Relop (Bool (B.neg_relop op'), e1, e2) *)
-(*     | Str op' -> Relop (Str (S.neg_relop op'), e1, e2) *)
-(*     | I32 op' -> Relop (I32 (I32.neg_relop op'), e1, e2) *)
-(*     | I64 op' -> Relop (I64 (I64.neg_relop op'), e1, e2) *)
-(*     | F32 op' -> Relop (F32 (F32.neg_relop op'), e1, e2) *)
-(*     | F64 op' -> Relop (F64 (F64.neg_relop op'), e1, e2) ) *)
-(*   | _ -> raise InvalidRelop *)
 
 (* let to_smt (es : _ t list) : string = *)
 (*   let symbols = *)

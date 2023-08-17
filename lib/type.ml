@@ -155,6 +155,30 @@ type (_, _) cvtop =
   | Bv : (('a, 'r) icvtop, ('a, 'r) icvtop) BV.op -> ('a, 'r) cvtop
   | Fp : (('a, 'r) fcvtop, ('a, 'r) fcvtop) FP.op -> ('a, 'r) cvtop
 
+let negate_irelop : irelop -> irelop = function
+  | Eq -> Ne
+  | Ne -> Eq
+  | Lt -> Ge
+  | Le -> Gt
+  | Gt -> Le
+  | Ge -> Lt
+  | LtU -> GeU
+  | LeU -> GtU
+  | GtU -> LeU
+  | GeU -> LtU
+
+let negate_frelop : frelop -> frelop = function
+  | Eq -> Ne
+  | Ne -> Eq
+  | Lt -> Ge
+  | Le -> Gt
+  | Gt -> Le
+  | Ge -> Lt
+
+let negate_brelop : brelop -> brelop = function
+  | Eq -> Ne
+  | Ne -> Eq
+
 module Pp : sig
   val pp_ty : _ ty -> string
   val pp_unop : _ unop -> string
