@@ -1,5 +1,8 @@
+module SMap = Map.Make (String)
+
 type 'a state =
   { stmts : Ast.t list
+  ; ty_env : Ty.t SMap.t
   ; smap : (string, Ty.t) Hashtbl.t
   ; pc : Expr.t list
   ; solver : 'a
