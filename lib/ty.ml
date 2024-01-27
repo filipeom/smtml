@@ -1,4 +1,5 @@
 let pp_string = Format.pp_print_string
+
 let fprintf = Format.fprintf
 
 type _ cast =
@@ -122,6 +123,21 @@ type logic =
   | QF_UFNRA
   | UFLRA
   | UFNIA
+
+let equal t1 t2 =
+  match (t1, t2) with
+  | Ty_int, Ty_int
+  | Ty_real, Ty_real
+  | Ty_bool, Ty_bool
+  | Ty_str, Ty_str
+  | Ty_bitv S8, Ty_bitv S8
+  | Ty_bitv S32, Ty_bitv S32
+  | Ty_bitv S64, Ty_bitv S64
+  | Ty_fp S8, Ty_fp S8
+  | Ty_fp S32, Ty_fp S32
+  | Ty_fp S64, Ty_fp S64 ->
+    true
+  | _ -> false
 
 let pp_unop fmt (op : unop) =
   match op with
