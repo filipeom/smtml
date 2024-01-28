@@ -14,4 +14,5 @@ and term =
 and binding = string * term
 
 val pp : Format.formatter -> t -> unit
+
 val to_string : t -> string
