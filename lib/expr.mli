@@ -10,8 +10,8 @@ and expr =
   | Relop of Ty.t * Ty.relop * t * t
   | Cvtop of Ty.t * Ty.cvtop * t
   | Symbol of Symbol.t
-  | Extract of t * int * int
-  | Concat of t * t
+  | Extract of expr * int * int
+  | Concat of expr * expr
 
 val mk : expr -> t
 

@@ -11,8 +11,8 @@ and expr =
   | Relop of Ty.t * relop * t * t
   | Cvtop of Ty.t * cvtop * t
   | Symbol of Symbol.t
-  | Extract of t * int * int
-  | Concat of t * t
+  | Extract of expr * int * int
+  | Concat of expr * expr
 
 module HashedType : Hashtbl.HashedType with type t = expr = struct
   type t = expr
@@ -48,8 +48,8 @@ module HashedType : Hashtbl.HashedType with type t = expr = struct
     | Relop (ty, op, e1, e2) -> h (ty, op, e1.tag, e2.tag)
     | Triop (ty, op, e1, e2, e3) -> h (ty, op, e1.tag, e2.tag, e3.tag)
     | Symbol s -> h s
-    | Extract (e, hi, lo) -> h (e.tag, hi, lo)
-    | Concat (e1, e2) -> h (e1.tag, e2.tag)
+    | Extract (e, hi, lo) -> h (e, hi, lo)
+    | Concat (e1, e2) -> h (e1, e2)
 end
 
 module Hc = Hc.Make (HashedType)
@@ -64,7 +64,7 @@ let mk_symbol s = mk (Symbol s)
 
 let ( @: ) e _ = mk e
 
-let is_num (e : t) = match e.node with Val (Num _) -> true | _ -> false
+let is_num (e : expr) = match e with Val (Num _) -> true | _ -> false
 
 let ty (e : t) : Ty.t =
   match e.node with
@@ -82,29 +82,29 @@ let ty (e : t) : Ty.t =
 
 let get_symbols (hte : t list) =
   let tbl = Hashtbl.create 64 in
-  let rec symbols (hte : t) =
-    match hte.node with
+  let rec symbols (hte : expr) =
+    match hte with
     | Val _ -> ()
-    | Ptr (_, offset) -> symbols offset
-    | Unop (_, _, e1) -> symbols e1
+    | Ptr (_, offset) -> symbols offset.node
+    | Unop (_, _, e1) -> symbols e1.node
     | Binop (_, _, e1, e2) ->
-      symbols e1;
-      symbols e2
+      symbols e1.node;
+      symbols e2.node
     | Triop (_, _, e1, e2, e3) ->
-      symbols e1;
-      symbols e2;
-      symbols e3
+      symbols e1.node;
+      symbols e2.node;
+      symbols e3.node
     | Relop (_, _, e1, e2) ->
-      symbols e1;
-      symbols e2
-    | Cvtop (_, _, e) -> symbols e
+      symbols e1.node;
+      symbols e2.node
+    | Cvtop (_, _, e) -> symbols e.node
     | Symbol s -> Hashtbl.replace tbl s ()
     | Extract (e, _, _) -> symbols e
     | Concat (e1, e2) ->
       symbols e1;
       symbols e2
   in
-  List.iter symbols hte;
+  List.iter (fun (e : t) -> symbols e.node) hte;
   Hashtbl.fold (fun k () acc -> k :: acc) tbl []
 
 let negate_relop (hte : t) : (t, string) Result.t =
@@ -127,8 +127,10 @@ let negate_relop (hte : t) : (t, string) Result.t =
 module Pp = struct
   open Format
 
-  let rec pp fmt (hte : t) =
-    match hte.node with
+  let rec pp fmt (e : t) = pp_expr fmt e.node
+
+  and pp_expr fmt (hte : expr) =
+    match hte with
     | Val v -> Value.pp fmt v
     | Ptr (base, offset) -> fprintf fmt "(Ptr (i32 %ld) %a)" base pp offset
     | Unop (ty, op, e) -> fprintf fmt "(%a.%a %a)" Ty.pp ty pp_unop op pp e
@@ -140,8 +142,8 @@ module Pp = struct
       fprintf fmt "(%a.%a %a %a)" Ty.pp ty pp_relop op pp e1 pp e2
     | Cvtop (ty, op, e) -> fprintf fmt "(%a.%a %a)" Ty.pp ty pp_cvtop op pp e
     | Symbol s -> Symbol.pp fmt s
-    | Extract (e, h, l) -> fprintf fmt "(extract %a %d %d)" pp e l h
-    | Concat (e1, e2) -> fprintf fmt "(++ %a %a)" pp e1 pp e2
+    | Extract (e, h, l) -> fprintf fmt "(extract %a %d %d)" pp_expr e l h
+    | Concat (e1, e2) -> fprintf fmt "(++ %a %a)" pp_expr e1 pp_expr e2
 
   let pp_list fmt (es : t list) = pp_print_list ~pp_sep:pp_print_space pp fmt es
 
@@ -170,53 +172,52 @@ let pp_smt = Pp.pp_smt
 
 let to_string e = Format.asprintf "%a" pp e
 
-let simplify_unop ty (op : unop) (e : t) : expr =
-  match e.node with
+let simplify_unop ty (op : unop) = function
   | Val (Num n) -> Val (Num (Eval_numeric.eval_unop ty op n))
-  | _ -> Unop (ty, op, e)
+  | e -> Unop (ty, op, mk e)
 
-let rec simplify_binop ty (op : binop) (e1 : t) (e2 : t) =
-  match (e1.node, e2.node) with
+let rec simplify_binop ty (op : binop) (e1 : expr) (e2 : expr) =
+  match (e1, e2) with
   | Val (Num n1), Val (Num n2) -> Val (Num (Eval_numeric.eval_binop ty op n1 n2))
   | Ptr (lbase, loff), Ptr (rbase, roff) -> (
     match op with
-    | Sub when lbase = rbase -> simplify_binop ty Sub loff roff
+    | Sub when lbase = rbase -> simplify_binop ty Sub loff.node roff.node
     | _ ->
       (* TODO: simplify to i32 here *)
-      Binop (ty, op, e1, e2) )
+      Binop (ty, op, mk e1, mk e2) )
   | Ptr (base, offset), _ -> (
     match op with
     | Add ->
-      let new_offset = simplify_binop (Ty_bitv S32) Add offset e2 in
+      let new_offset = simplify_binop (Ty_bitv S32) Add offset.node e2 in
       Ptr (base, mk new_offset)
     | Sub ->
-      let new_offset = simplify_binop (Ty_bitv S32) Sub offset e2 in
+      let new_offset = simplify_binop (Ty_bitv S32) Sub offset.node e2 in
       Ptr (base, mk new_offset)
     | Rem ->
-      let rhs = mk (Val (Num (I32 base))) in
-      let addr = mk @@ simplify_binop ty Add rhs offset in
+      let rhs = Val (Num (I32 base)) in
+      let addr = simplify_binop ty Add rhs offset.node in
       simplify_binop (Ty_bitv S32) Rem addr e2
-    | _ -> Binop (ty, op, e1, e2) )
+    | _ -> Binop (ty, op, mk e1, mk e2) )
   | _, Ptr (base, offset) -> (
     match op with
     | Add ->
-      let new_offset = simplify_binop (Ty_bitv S32) Add offset e1 in
+      let new_offset = simplify_binop (Ty_bitv S32) Add offset.node e1 in
       Ptr (base, mk new_offset)
     | _ ->
       (* TODO: simplify here *)
-      Binop (ty, op, e1, e2) )
+      Binop (ty, op, mk e1, mk e2) )
   | Val (Num (I32 0l)), _ -> (
     match op with
-    | Add | Or -> e2.node
+    | Add | Or -> e2
     | And | Div | DivU | Mul | Rem | RemU -> Val (Num (I32 0l))
-    | _ -> Binop (ty, op, e1, e2) )
+    | _ -> Binop (ty, op, mk e1, mk e2) )
   | _, Val (Num (I32 0l)) -> (
     match op with
-    | Add | Or | Sub -> e1.node
+    | Add | Or | Sub -> e1
     | And | Mul -> Val (Num (I32 0l))
-    | _ -> Binop (ty, op, e1, e2) )
+    | _ -> Binop (ty, op, mk e1, mk e2) )
   | Binop (ty2, op2, x, { node = Val (Num v1); _ }), Val (Num v2)
-    when not (is_num x) -> (
+    when not (is_num x.node) -> (
     assert (Ty.equal ty ty2);
     match (op, op2) with
     (* (+ (+ x 1) 2) = (+ x (+ 1 2)) *)
@@ -232,33 +233,35 @@ let rec simplify_binop ty (op : binop) (e1 : t) (e2 : t) =
     | Sub, Add ->
       let v = Eval_numeric.eval_binop ty Sub v1 v2 in
       Binop (ty, Add, x, mk (Val (Num v)))
-    | _, _ -> Binop (ty, op, e1, e2) )
+    | _, _ -> Binop (ty, op, mk e1, mk e2) )
   (* FIXME: commenting because this seems wrong? *)
   (* | Binop (_, And, _, _), Val (Num (I32 1l)) -> e1.node *)
   (* | Val (Num (I32 1l)), Binop (_, And, _, _) -> e2.node *)
-  | _ -> Binop (ty, op, e1, e2)
+  | _ -> Binop (ty, op, mk e1, mk e2)
 
-let simplify_triop ty (op : triop) (e1 : t) (e2 : t) (e3 : t) : expr =
+(* TODO: avoid calling 'mk' here *)
+let simplify_triop ty (op : triop) (e1 : expr) (e2 : expr) (e3 : expr) : expr =
   match op with
   | Ite -> (
-    match e1.node with
-    | Val True -> e2.node
-    | Val False -> e3.node
-    | _ -> Triop (ty, op, e1, e2, e3) )
+    match e1 with
+    | Val True -> e2
+    | Val False -> e3
+    | _ -> Triop (ty, op, mk e1, mk e2, mk e3) )
   | Substr -> (
-    match (e1.node, e2.node, e3.node) with
+    match (e1, e2, e3) with
     | Val (Str s), Val (Int i), Val (Int len) -> Val (Str (String.sub s i len))
-    | _ -> Triop (ty, op, e1, e2, e3) )
+    | _ -> Triop (ty, op, mk e1, mk e2, mk e3) )
 
-let simplify_relop ty (op : relop) (e1 : t) (e2 : t) =
-  match (e1.node, e2.node) with
+(* TODO: avoid calling 'mk' here *)
+let simplify_relop ty (op : relop) (e1 : expr) (e2 : expr) : expr =
+  match (e1, e2) with
   | Val (Num v1), Val (Num v2) ->
     Val (if Eval_numeric.eval_relop ty op v1 v2 then True else False)
   | Ptr (_, _), Val (Num (I32 0l)) | Val (Num (I32 0l)), Ptr (_, _) -> (
     match op with
     | Eq -> Val False
     | Ne -> Val True
-    | _ -> Relop (ty, op, e1, e2) )
+    | _ -> Relop (ty, op, mk e1, mk e2) )
   | Ptr (b1, os1), Ptr (b2, os2) -> (
     let v i = mk (Val (Num (I32 i))) in
     match op with
@@ -266,13 +269,13 @@ let simplify_relop ty (op : relop) (e1 : t) (e2 : t) =
     | Ne -> if b1 = b2 then Relop (ty, Ne, os1, os2) else Val True
     | (LtU | LeU | GtU | GeU) as op ->
       if b1 = b2 then Relop (ty, op, os1, os2) else Relop (ty, op, v b1, v b2)
-    | _ -> Relop (ty, op, e1, e2) )
-  | _ -> Relop (ty, op, e1, e2)
+    | _ -> Relop (ty, op, mk e1, mk e2) )
+  | _ -> Relop (ty, op, mk e1, mk e2)
 
-let simplify_cvtop ty (op : cvtop) (e : t) =
-  match e.node with
+let simplify_cvtop ty (op : cvtop) (e : expr) =
+  match e with
   | Val (Num n) -> Val (Num (Eval_numeric.eval_cvtop ty op n))
-  | _ -> Cvtop (ty, op, e)
+  | _ -> Cvtop (ty, op, mk e)
 
 let nland64 (x : int64) (n : int) =
   let rec loop x' n' acc =
@@ -288,79 +291,81 @@ let nland32 (x : int32) (n : int) =
   in
   loop x n 0l
 
-let simplify_extract (s : t) h l =
-  match s.node with
+let simplify_extract (s : expr) h l =
+  match s with
   | Val (Num (I64 x)) ->
     let x' = nland64 (Int64.shift_right x (l * 8)) (h - l) in
     Val (Num (I64 x'))
-  | _ ->
+  | x ->
     (* FIXME: *)
     (* if h - l = size s.node then s.node else *)
-    Extract (s, h, l)
+    Extract (x, h, l)
 
-let simplify_concat (msb : t) (lsb : t) =
-  match (msb.node, lsb.node) with
+let simplify_concat (msb : expr) (lsb : expr) =
+  match (msb, lsb) with
   (* TODO: Add concat of I8s *)
-  | ( Extract ({ node = Val (Num (I64 x2)); _ }, h2, l2)
-    , Extract ({ node = Val (Num (I64 x1)); _ }, h1, l1) ) ->
+  | Extract (Val (Num (I64 x2)), h2, l2), Extract (Val (Num (I64 x1)), h1, l1)
+    ->
     let d1 = h1 - l1 in
     let d2 = h2 - l2 in
     let x1' = nland64 (Int64.shift_right x1 (l1 * 8)) d1 in
     let x2' = nland64 (Int64.shift_right x2 (l2 * 8)) d2 in
     let x = Int64.(logor (shift_left x2' (d1 * 8)) x1') in
-    Extract (mk (Val (Num (I64 x))), d1 + d2, 0)
-  | ( Extract ({ node = Val (Num (I32 x2)); _ }, h2, l2)
-    , Extract ({ node = Val (Num (I32 x1)); _ }, h1, l1) ) ->
+    Extract (Val (Num (I64 x)), d1 + d2, 0)
+  | Extract (Val (Num (I32 x2)), h2, l2), Extract (Val (Num (I32 x1)), h1, l1)
+    ->
     let d1 = h1 - l1 in
     let d2 = h2 - l2 in
     let x1' = nland32 (Int32.shift_right x1 (l1 * 8)) d1 in
     let x2' = nland32 (Int32.shift_right x2 (l2 * 8)) d2 in
     let x = Int32.(logor (shift_left x2' (d1 * 8)) x1') in
-    Extract (mk (Val (Num (I32 x))), d1 + d2, 0)
-  | Extract (s1, h, m1), Extract (s2, m2, l) when equal s1 s2 && m1 = m2 ->
+    Extract (Val (Num (I32 x)), d1 + d2, 0)
+  | Extract (s1, h, m1), Extract (s2, m2, l) when s1 = s2 && m1 = m2 ->
     Extract (s1, h, l)
-  | ( Extract ({ node = Val (Num (I64 x2)); _ }, h2, l2)
-    , Concat
-        ({ node = Extract ({ node = Val (Num (I64 x1)); _ }, h1, l1); _ }, se) )
+  | ( Extract (Val (Num (I64 x2)), h2, l2)
+    , Concat (Extract (Val (Num (I64 x1)), h1, l1), se) )
     when not (is_num se) ->
     let d1 = h1 - l1 in
     let d2 = h2 - l2 in
     let x1' = nland64 (Int64.shift_right x1 (l1 * 8)) d1 in
     let x2' = nland64 (Int64.shift_right x2 (l2 * 8)) d2 in
     let x = Int64.(logor (shift_left x2' (d1 * 8)) x1') in
-    Concat (mk @@ Extract (mk @@ Val (Num (I64 x)), d1 + d2, 0), se)
+    Concat (Extract (Val (Num (I64 x)), d1 + d2, 0), se)
   | _ -> Concat (msb, lsb)
 
-let rec simplify ?(extract = true) (hte : t) : t =
-  match hte.node with
-  | Val _ | Symbol _ -> hte
-  | Ptr (base, offset) -> mk @@ Ptr (base, simplify offset)
+let rec simplify_expr ?(extract = true) (e : expr) : expr =
+  match e with
+  | Val _ | Symbol _ -> e
+  | Ptr (base, offset) -> Ptr (base, mk @@ simplify_expr offset.node)
   | Unop (ty, op, e) ->
-    let e = simplify e in
-    mk @@ simplify_unop ty op e
+    let e = simplify_expr e.node in
+    simplify_unop ty op e
   | Binop (ty, op, e1, e2) ->
-    let e1 = simplify e1 in
-    let e2 = simplify e2 in
-    mk @@ simplify_binop ty op e1 e2
+    let e1 = simplify_expr e1.node in
+    let e2 = simplify_expr e2.node in
+    simplify_binop ty op e1 e2
   | Triop (ty, op, e1, e2, e3) ->
-    let e1 = simplify e1 in
-    let e2 = simplify e2 in
-    let e3 = simplify e3 in
-    mk @@ simplify_triop ty op e1 e2 e3
+    let e1 = simplify_expr e1.node in
+    let e2 = simplify_expr e2.node in
+    let e3 = simplify_expr e3.node in
+    simplify_triop ty op e1 e2 e3
   | Relop (ty, op, e1, e2) ->
-    let e1 = simplify e1 in
-    let e2 = simplify e2 in
-    mk @@ simplify_relop ty op e1 e2
+    let e1 = simplify_expr e1.node in
+    let e2 = simplify_expr e2.node in
+    simplify_relop ty op e1 e2
   | Cvtop (ty, op, e) ->
-    let e = simplify e in
-    mk @@ simplify_cvtop ty op e
-  | Extract (_, _, _) when not extract -> hte
-  | Extract (s, h, l) when extract -> mk @@ simplify_extract s h l
+    let e = simplify_expr e.node in
+    simplify_cvtop ty op e
+  | Extract (_, _, _) when not extract -> e
+  | Extract (s, h, l) when extract -> simplify_extract s h l
   | Concat (e1, e2) ->
-    let msb = simplify ~extract:false e1 in
-    let lsb = simplify ~extract:false e2 in
-    mk @@ simplify_concat msb lsb
-  | Extract _ -> hte
+    let msb = simplify_expr ~extract:false e1 in
+    let lsb = simplify_expr ~extract:false e2 in
+    simplify_concat msb lsb
+  | Extract _ -> e
+
+let simplify ?(extract = true) (hte : t) : t =
+  mk @@ simplify_expr ~extract hte.node
 
 module Bool = struct
   let v b = mk @@ match b with true -> Val True | false -> Val False

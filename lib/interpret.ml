@@ -14,19 +14,25 @@ module Make (Solver : Solver_intf.S) = struct
     { stmts; ty_env = SMap.empty; solver = Solver.create ~params (); pc = [] }
 
   let rewrite ty_env map (e : Expr.t) =
-    let rec traverse (e : Expr.t) =
+    let rec traverse (e : Expr.expr) : Expr.expr =
       let open Expr in
-      match e.node with
+      match e with
       | Val _ | Ptr _ -> e
-      | Unop (ty, op, e') -> mk @@ Unop (ty, op, traverse e')
-      | Binop (ty, op, e1, e2) -> mk @@ Binop (ty, op, traverse e1, traverse e2)
+      | Unop (ty, op, e') -> Unop (ty, op, mk @@ traverse e'.node)
+      | Binop (ty, op, e1, e2) ->
+        let e1 = traverse e1.node in
+        let e2 = traverse e2.node in
+        Binop (ty, op, mk e1, mk e2)
       | Triop (ty, op, e1, e2, e3) ->
-        let e1 = traverse e1 in
-        let e2 = traverse e2 in
-        let e3 = traverse e3 in
-        mk @@ Triop (ty, op, e1, e2, e3)
-      | Relop (ty, op, e1, e2) -> mk @@ Relop (ty, op, traverse e1, traverse e2)
-      | Cvtop (ty, op, e') -> mk @@ Cvtop (ty, op, traverse e')
+        let e1 = traverse e1.node in
+        let e2 = traverse e2.node in
+        let e3 = traverse e3.node in
+        Triop (ty, op, mk e1, mk e2, mk e3)
+      | Relop (ty, op, e1, e2) ->
+        let e1 = traverse e1.node in
+        let e2 = traverse e2.node in
+        Relop (ty, op, mk e1, mk e2)
+      | Cvtop (ty, op, e') -> Cvtop (ty, op, mk @@ traverse e'.node)
       | Symbol s -> (
         let name = Symbol.name s in
         match SMap.find name map with
@@ -35,20 +41,20 @@ module Make (Solver : Solver_intf.S) = struct
             Log.err "Undefined variable '%s'" name;
           e
         | expr -> expr )
-      | Extract (e', h, l) -> mk @@ Extract (traverse e', h, l)
-      | Concat (e1, e2) -> mk @@ Concat (traverse e1, traverse e2)
+      | Extract (e', h, l) -> Extract (traverse e', h, l)
+      | Concat (e1, e2) -> Concat (traverse e1, traverse e2)
     in
-    traverse e
+    Expr.mk @@ traverse e.node
 
   let eval_term ty_env t =
-    let rec eval' map = function
+    let rec eval' (map : Expr.expr SMap.t) = function
       | E e -> rewrite ty_env map e
       | Let (binds, term) ->
         let map' =
           List.fold_left
             (fun acc (xi, ti) ->
               let ei = eval' map ti in
-              SMap.add xi ei acc )
+              SMap.add xi ei.node acc )
             map binds
         in
         eval' map' term

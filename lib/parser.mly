@@ -1,7 +1,8 @@
 %{
-open Value
+open Hc
 open Ty
 open Expr
+open Value
 
 let varmap = Hashtbl.create 512
 
@@ -81,9 +82,9 @@ let paren_op :=
   | (ty, op) = RELOP; e1 = s_expr; e2 = s_expr;
     { Relop (ty, op, e1, e2) }
   | EXTRACT; ~ = s_expr; l = NUM; h = NUM;
-    { Extract (s_expr, h, l) }
+    { Extract (s_expr.node, h, l) }
   | CONCAT; e1 = s_expr; e2 = s_expr;
-    { Concat (e1, e2) }
+    { Concat (e1.node, e2.node) }
 
 let spec_constant :=
   | x = NUM; { Int x }

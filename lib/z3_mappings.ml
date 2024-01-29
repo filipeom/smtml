@@ -581,32 +581,32 @@ module Fresh = struct
     (*     quantified_assertion *)
     (*   else body *)
 
-    let rec encode_expr (hte : Expr.t) : expr =
+    let rec encode_expr (hte : Expr.expr) : expr =
       let open Expr in
-      match hte.node with
+      match hte with
       | Val v -> encode_val v
       | Ptr (base, offset) ->
         let base' = encode_val (Num (I32 base)) in
-        let offset' = encode_expr offset in
+        let offset' = encode_expr offset.node in
         Bv.encode_binop Add base' offset'
       | Unop (ty, op, e) ->
-        let e' = encode_expr e in
+        let e' = encode_expr e.node in
         encode_unop ty op e'
       | Binop (ty, op, e1, e2) ->
-        let e1' = encode_expr e1 in
-        let e2' = encode_expr e2 in
+        let e1' = encode_expr e1.node in
+        let e2' = encode_expr e2.node in
         encode_binop ty op e1' e2'
       | Triop (ty, op, e1, e2, e3) ->
-        let e1' = encode_expr e1
-        and e2' = encode_expr e2
-        and e3' = encode_expr e3 in
+        let e1' = encode_expr e1.node in
+        let e2' = encode_expr e2.node in
+        let e3' = encode_expr e3.node in
         encode_triop ty op e1' e2' e3'
       | Relop (ty, op, e1, e2) ->
-        let e1' = encode_expr e1
-        and e2' = encode_expr e2 in
+        let e1' = encode_expr e1.node in
+        let e2' = encode_expr e2.node in
         encode_relop ty op e1' e2'
       | Cvtop (ty, op, e) ->
-        let e' = encode_expr e in
+        let e' = encode_expr e.node in
         encode_cvtop ty op e'
       | Symbol s ->
         let x = Symbol.name s in
@@ -650,7 +650,7 @@ module Fresh = struct
 
     let pp_smt ?status fmt (es : Expr.t list) =
       let st = match status with Some b -> string_of_bool b | None -> "" in
-      let es' = List.map encode_expr es in
+      let es' = List.map (fun (e : Expr.t) -> encode_expr e.node) es in
       Z3.Params.set_print_mode ctx Z3enums.PRINT_SMTLIB2_COMPLIANT;
       Format.fprintf fmt "%s"
         (Z3.SMT.benchmark_to_smtstring ctx "" "" st "" (List.tl es')
@@ -715,9 +715,13 @@ module Fresh = struct
 
       let reset s = Z3.Solver.reset s [@@inline]
 
-      let add s es = Z3.Solver.add s (List.map encode_expr es)
+      let add s es =
+        let es = List.map (fun (e : Expr.t) -> encode_expr e.node) es in
+        Z3.Solver.add s es
 
-      let check s es = Z3.Solver.check s (List.map encode_expr es)
+      let check s es =
+        let es = List.map (fun (e : Expr.t) -> encode_expr e.node) es in
+        Z3.Solver.check s es
 
       let model s = Z3.Solver.get_model s
 
@@ -736,15 +740,17 @@ module Fresh = struct
 
       let pop o = Z3.Optimize.pop o
 
-      let add o es = Z3.Optimize.add o (List.map encode_expr es)
+      let add o es =
+        let es = List.map (fun (e : Expr.t) -> encode_expr e.node) es in
+        Z3.Optimize.add o es
 
       let check o = Z3.Optimize.check o
 
       let model o = Z3.Optimize.get_model o
 
-      let maximize o e = Z3.Optimize.maximize o (encode_expr e)
+      let maximize o (e : Expr.t) = Z3.Optimize.maximize o (encode_expr e.node)
 
-      let minimize o e = Z3.Optimize.minimize o (encode_expr e)
+      let minimize o (e : Expr.t) = Z3.Optimize.minimize o (encode_expr e.node)
 
       let pp_statistics fmt o =
         let module Entry = Z3.Statistics.Entry in
@@ -797,7 +803,7 @@ module Fresh = struct
     let value (model : Z3.Model.model) (c : Expr.t) : Value.t =
       let open Value in
       (* we have a model with completion => should never be None *)
-      let e = Z3.Model.eval model (encode_expr c) true |> Option.get in
+      let e = Z3.Model.eval model (encode_expr c.node) true |> Option.get in
       match (Expr.ty c, Z3.Sort.get_sort_kind @@ Z3.Expr.get_sort e) with
       | Ty_int, Z3enums.INT_SORT ->
         Int (Z.to_int @@ Z3.Arithmetic.Integer.get_big_int e)
