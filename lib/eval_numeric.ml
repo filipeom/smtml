@@ -25,7 +25,7 @@ module I32Op = struct
   let to_value i : Num.t = I32 i
 
   let of_value n v : t =
-    of_arg (function I32 i -> i | _ -> raise (Num (Ty_bitv 32))) n v
+    of_arg (function I32 i -> i | _ -> raise (Num (T (Ty_bitv 32)))) n v
 
   let cmp_u x op y = op Int32.(add x min_int) Int32.(add y min_int)
 
@@ -58,7 +58,8 @@ module I32Op = struct
     let n = clamp_rotate_count y in
     Int32.logor (shr_u x (Int32.of_int n)) (shl x (Int32.of_int (32 - n)))
 
-  let unop (op : unop) : Num.t -> Num.t =
+  let unop : [ `Ty_bitv ] unop -> Num.t -> Num.t =
+   fun op ->
     let f =
       match op with
       | Neg -> Int32.neg
@@ -67,7 +68,6 @@ module I32Op = struct
         fun n -> Int32.of_int (Ocaml_intrinsics.Int32.count_leading_zeros n)
       | Ctz ->
         fun n -> Int32.of_int (Ocaml_intrinsics.Int32.count_trailing_zeros n)
-      | _ -> Log.err {|eval_unop: Unsupported i32 operator "%a"|} Ty.pp_unop op
     in
     fun v -> to_value (f (of_value 1 v))
 
@@ -115,7 +115,7 @@ module I64Op = struct
   let to_value i : Num.t = I64 i
 
   let of_value n v : int64 =
-    of_arg (function I64 i -> i | _ -> raise (Num (Ty_bitv 64))) n v
+    of_arg (function I64 i -> i | _ -> raise (Num (T (Ty_bitv 64)))) n v
 
   let cmp_u x op y = op Int64.(add x min_int) Int64.(add y min_int)
 
@@ -148,7 +148,7 @@ module I64Op = struct
     let n = clamp_rotate_count y in
     Int64.logor (shr_u x (Int64.of_int n)) (shl x (Int64.of_int (64 - n)))
 
-  let unop (op : unop) : Num.t -> Num.t =
+  let unop (op : [ `Ty_bitv ] unop) : Num.t -> Num.t =
     let f =
       match op with
       | Neg -> Int64.neg
@@ -157,7 +157,6 @@ module I64Op = struct
         fun n -> Int64.of_int (Ocaml_intrinsics.Int64.count_leading_zeros n)
       | Ctz ->
         fun n -> Int64.of_int (Ocaml_intrinsics.Int64.count_trailing_zeros n)
-      | _ -> Log.err {|eval_unop: Unsupported i64 operator "%a"|} Ty.pp_unop op
     in
     fun v -> to_value (f (of_value 1 v))
 
@@ -204,13 +203,13 @@ end
 module F32Op = struct
   let to_value f : Num.t = F32 f
 
-  let of_value = of_arg (function F32 f -> f | _ -> raise (Num (Ty_fp 32)))
+  let of_value = of_arg (function F32 f -> f | _ -> raise (Num (T (Ty_fp 32))))
 
   let of_float = Int32.bits_of_float
 
   let to_float = Int32.float_of_bits
 
-  let unop (op : unop) =
+  let unop (op : [ `Ty_fp ] unop) =
     let f =
       match op with
       | Neg -> Float.neg
@@ -220,7 +219,7 @@ module F32Op = struct
       | Ceil -> Float.ceil
       | Floor -> Float.floor
       | Trunc -> Float.trunc
-      | Is_nan | Not | Clz | Ctz | Trim | Len ->
+      | Is_nan ->
         Log.err {|eval_unop: Unsupported f32 operator "%a"|} Ty.pp_unop op
     in
     fun v -> to_value (of_float (f (to_float (of_value 1 v))))
@@ -260,13 +259,13 @@ end
 module F64Op = struct
   let to_value f : Num.t = F64 f
 
-  let of_value = of_arg (function F64 f -> f | _ -> raise (Num (Ty_fp 64)))
+  let of_value = of_arg (function F64 f -> f | _ -> raise (Num (T (Ty_fp 64))))
 
   let of_float = Int64.bits_of_float
 
   let to_float = Int64.float_of_bits
 
-  let unop (op : unop) =
+  let unop (op : [ `Ty_fp ] unop) =
     let f =
       match op with
       | Neg -> Float.neg
@@ -276,7 +275,7 @@ module F64Op = struct
       | Ceil -> Float.ceil
       | Floor -> Float.floor
       | Trunc -> Float.trunc
-      | Is_nan | Not | Clz | Ctz | Trim | Len ->
+      | Is_nan ->
         Log.err {|eval_unop: Unsupported f32 operator "%a"|} Ty.pp_unop op
     in
     fun v -> to_value (of_float (f (to_float (of_value 1 v))))
@@ -418,7 +417,7 @@ module I64CvtOp = struct
     | TruncSF64 -> I64 (trunc_f64_s (F64Op.of_value 1 v))
     | TruncUF64 -> I64 (trunc_f64_u (F64Op.of_value 1 v))
     | Reinterpret_float -> I64 (F64Op.of_value 1 v)
-    | WrapI64 -> raise (TypeError (1, v, Ty_bitv 64))
+    | WrapI64 -> raise (TypeError (1, v, T (Ty_bitv 64)))
     | ToBool | OfBool | _ ->
       Log.err {|eval_cvtop: Unsupported i64 operator "%a"|} Ty.pp_cvtop op
 end
@@ -470,7 +469,7 @@ module F32CvtOp = struct
     | ConvertSI64 -> F32 (convert_i64_s (I64Op.of_value 1 v))
     | ConvertUI64 -> F32 (convert_i64_u (I64Op.of_value 1 v))
     | Reinterpret_int -> F32 (I32Op.of_value 1 v)
-    | PromoteF32 -> raise (TypeError (1, v, Ty_fp 32))
+    | PromoteF32 -> raise (TypeError (1, v, T (Ty_fp 32)))
     | ToString | OfString | _ ->
       Log.err {|eval_cvtop: Unsupported f32 operator "%a"|} Ty.pp_cvtop op
 end
@@ -522,14 +521,14 @@ module F64CvtOp = struct
     | ConvertSI64 -> F64 (convert_i64_s (I64Op.of_value 1 v))
     | ConvertUI64 -> F64 (convert_i64_u (I64Op.of_value 1 v))
     | Reinterpret_int -> F64 (I64Op.of_value 1 v)
-    | DemoteF64 -> raise (TypeError (1, v, Ty_bitv 64))
+    | DemoteF64 -> raise (TypeError (1, v, T (Ty_bitv 64)))
     | ToString | OfString | _ ->
       Log.err {|eval_cvtop: Unsupported f64 operator "%a"|} Ty.pp_cvtop op
 end
 
 (* Dispatch *)
 
-let op i32 i64 f32 f64 ty op =
+let op i32 i64 f32 f64 (T ty) op =
   match ty with
   | Ty_int -> Log.err "eval_numeric: Integer evaluations not supported"
   | Ty_real -> Log.err "eval_numeric: Float evaluations not supported"
@@ -539,7 +538,16 @@ let op i32 i64 f32 f64 ty op =
   | Ty_fp 64 -> f64 op
   | Ty_bool | Ty_str | _ -> assert false
 
-let eval_unop = op I32Op.unop I64Op.unop F32Op.unop F64Op.unop
+let eval_unop : type a. a Ty.t' -> a unop -> Num.t -> Num.t =
+ fun (type a) (ty : a Ty.t') (op : a unop) ->
+  match ty with
+  | Ty_int -> Log.err "eval_numeric: Integer evaluations not supported"
+  | Ty_real -> Log.err "eval_numeric: Float evaluations not supported"
+  | Ty_bitv 32 -> I32Op.unop op
+  | Ty_bitv 64 -> I64Op.unop op
+  | Ty_fp 32 -> F32Op.unop op
+  | Ty_fp 64 -> F64Op.unop op
+  | Ty_bool | Ty_str | _ -> assert false
 
 let eval_binop = op I32Op.binop I64Op.binop F32Op.binop F64Op.binop
 

@@ -3,29 +3,30 @@ type _ cast =
   | C32 : int32 cast
   | C64 : int64 cast
 
-type t =
-  | Ty_int
-  | Ty_real
-  | Ty_bool
-  | Ty_str
-  | Ty_bitv of int
-  | Ty_fp of int
-  | Ty_var of { id : int }
+type _ t' =
+  | Ty_int : [ `Ty_int ] t'
+  | Ty_real : [ `Ty_real ] t'
+  | Ty_bool : [ `Ty_bool ] t'
+  | Ty_str : [ `Ty_str ] t'
+  | Ty_bitv : int -> [ `Ty_bitv ] t'
+  | Ty_fp : int -> [ `Ty_fp ] t'
 
-type unop =
-  | Abs
-  | Ceil
-  | Clz
-  | Ctz
-  | Floor
-  | Is_nan
-  | Len
-  | Neg
-  | Nearest
-  | Not
-  | Sqrt
-  | Trim
-  | Trunc
+type t = T : 'a t' -> t
+
+type _ unop =
+  | Abs : [< `Ty_real | `Ty_fp ] unop
+  | Ceil : [< `Ty_real | `Ty_fp ] unop
+  | Clz : [ `Ty_bitv ] unop
+  | Ctz : [ `Ty_bitv ] unop
+  | Floor : [< `Ty_real | `Ty_fp ] unop
+  | Is_nan : [ `Ty_fp ] unop
+  | Len : [ `Ty_str ] unop
+  | Neg : [< `Ty_int | `Ty_real | `Ty_bitv | `Ty_fp ] unop
+  | Nearest : [< `Ty_real | `Ty_fp ] unop
+  | Not : [< `Ty_bitv | `Ty_bool ] unop
+  | Sqrt : [< `Ty_real | `Ty_fp ] unop
+  | Trim : [ `Ty_str ] unop
+  | Trunc : [< `Ty_real | `Ty_fp ] unop
 
 type binop =
   | Add
@@ -62,9 +63,9 @@ type relop =
   | Ge
   | GeU
 
-type triop =
-  | Ite
-  | Substr
+type _ triop =
+  | Ite : [ `Ty_bool ] triop
+  | Substr : [ `Ty_str ] triop
 
 type cvtop =
   | ToString
@@ -116,11 +117,11 @@ type logic =
   | UFLRA
   | UFNIA
 
-val pp_unop : Format.formatter -> unop -> unit
+val pp_unop : Format.formatter -> _ unop -> unit
 
 val pp_binop : Format.formatter -> binop -> unit
 
-val pp_triop : Format.formatter -> triop -> unit
+val pp_triop : Format.formatter -> _ triop -> unit
 
 val pp_relop : Format.formatter -> relop -> unit
 

@@ -6,9 +6,9 @@ and expr =
   | Val of Value.t
   | Ptr of int32 * t
   | Symbol of Symbol.t
-  | Unop of Ty.t * unop * t
+  | Unop : 'a Ty.t' * 'a unop * t -> expr
   | Binop of Ty.t * binop * t * t
-  | Triop of Ty.t * triop * t * t * t
+  | Triop : 'a Ty.t' * 'a triop * t * t * t -> expr
   | Relop of Ty.t * relop * t * t
   | Cvtop of Ty.t * cvtop * t
   | Extract of t * int * int
@@ -22,14 +22,15 @@ module Hc = Hc.Make (struct
     | Val v1, Val v2 -> Value.equal v1 v2
     | Ptr (b1, o1), Ptr (b2, o2) -> b1 = b2 && o1 == o2
     | Symbol s1, Symbol s2 -> Symbol.equal s1 s2
-    | Unop (t1, op1, e1), Unop (t2, op2, e2) ->
-      Ty.equal t1 t2 && op1 = op2 && e1 == e2
+    | Unop (t1, _op1, e1), Unop (t2, _op2, e2) ->
+      (* Ty.equal (T t1) (T t2) && op1 = op2 && e1 == e2 *)
+      Ty.equal (T t1) (T t2) && e1 == e2
     | Binop (t1, op1, e1, e3), Binop (t2, op2, e2, e4) ->
       Ty.equal t1 t2 && op1 = op2 && e1 == e2 && e3 == e4
     | Relop (t1, op1, e1, e3), Relop (t2, op2, e2, e4) ->
       Ty.equal t1 t2 && op1 = op2 && e1 == e2 && e3 == e4
-    | Triop (t1, op1, e1, e3, e5), Triop (t2, op2, e2, e4, e6) ->
-      Ty.equal t1 t2 && op1 = op2 && e1 == e2 && e3 == e4 && e5 == e6
+    | Triop (t1, _op1, e1, e3, e5), Triop (t2, _op2, e2, e4, e6) ->
+      Ty.equal (T t1) (T t2) (* op1 = op2 *) && e1 == e2 && e3 == e4 && e5 == e6
     | Cvtop (t1, op1, e1), Cvtop (t2, op2, e2) ->
       Ty.equal t1 t2 && op1 = op2 && e1 == e2
     | Extract (e1, h1, l1), Extract (e2, h2, l2) ->
@@ -69,17 +70,17 @@ let is_num (e : t) = match view e with Val (Num _) -> true | _ -> false
 let rec ty (hte : t) : Ty.t =
   match view hte with
   | Val x -> Value.type_of x
-  | Ptr _ -> Ty_bitv 32
+  | Ptr _ -> T (Ty_bitv 32)
   | Symbol x -> Symbol.type_of x
-  | Unop (ty, _, _) -> ty
+  | Unop (ty, _, _) -> T ty
   | Binop (ty, _, _, _) -> ty
-  | Triop (ty, _, _, _, _) -> ty
+  | Triop (ty, _, _, _, _) -> T ty
   | Relop (ty, _, _, _) -> ty
   | Cvtop (ty, _, _) -> ty
-  | Extract (_, h, l) -> Ty_bitv ((h - l) * 8)
+  | Extract (_, h, l) -> T (Ty_bitv ((h - l) * 8))
   | Concat (e1, e2) -> (
     match (ty e1, ty e2) with
-    | Ty_bitv n1, Ty_bitv n2 -> Ty_bitv (n1 + n2)
+    | T (Ty_bitv n1), T (Ty_bitv n2) -> T (Ty_bitv (n1 + n2))
     | t1, t2 -> Log.err "Invalid concat of (%a) with (%a)" Ty.pp t1 Ty.pp t2 )
 
 let get_symbols (hte : t list) =
@@ -133,11 +134,11 @@ module Pp = struct
     match view hte with
     | Val v -> Value.pp fmt v
     | Ptr (base, offset) -> fprintf fmt "(Ptr (i32 %ld) %a)" base pp offset
-    | Unop (ty, op, e) -> fprintf fmt "(%a.%a %a)" Ty.pp ty pp_unop op pp e
+    | Unop (ty, op, e) -> fprintf fmt "(%a.%a %a)" Ty.pp (T ty) pp_unop op pp e
     | Binop (ty, op, e1, e2) ->
       fprintf fmt "(%a.%a %a %a)" Ty.pp ty pp_binop op pp e1 pp e2
     | Triop (ty, op, e1, e2, e3) ->
-      fprintf fmt "(%a.%a %a %a %a)" Ty.pp ty pp_triop op pp e1 pp e2 pp e3
+      fprintf fmt "(%a.%a %a %a %a)" Ty.pp (T ty) pp_triop op pp e1 pp e2 pp e3
     | Relop (ty, op, e1, e2) ->
       fprintf fmt "(%a.%a %a %a)" Ty.pp ty pp_relop op pp e1 pp e2
     | Cvtop (ty, op, e) -> fprintf fmt "(%a.%a %a)" Ty.pp ty pp_cvtop op pp e
@@ -174,7 +175,8 @@ let pp_smt = Pp.pp_smt
 
 let to_string e = Format.asprintf "%a" pp e
 
-let unop ty (op : unop) (hte : t) : t =
+let unop : type a. a Ty.t' -> a unop -> t -> t =
+ fun ty op hte ->
   match view hte with
   | Val (Num n) -> make (Val (Num (Eval_numeric.eval_unop ty op n)))
   | _ -> make (Unop (ty, op, hte))
@@ -192,19 +194,19 @@ let rec binop ty (op : binop) (hte1 : t) (hte2 : t) : t =
   | Ptr (base, offset), _ -> (
     match op with
     | Add ->
-      let new_offset = binop (Ty_bitv 32) Add offset hte2 in
+      let new_offset = binop (T (Ty_bitv 32)) Add offset hte2 in
       make (Ptr (base, new_offset))
     | Sub ->
-      let new_offset = binop (Ty_bitv 32) Sub offset hte2 in
+      let new_offset = binop (T (Ty_bitv 32)) Sub offset hte2 in
       make (Ptr (base, new_offset))
     | Rem ->
       let rhs = make (Val (Value.Num (Num.I32 base))) in
-      let addr = binop (Ty_bitv 32) Add rhs offset in
+      let addr = binop (T (Ty_bitv 32)) Add rhs offset in
       binop ty Rem addr hte2
     | _ -> make (Binop (ty, op, hte1, hte2)) )
   | _, Ptr (base, offset) -> (
     match op with
-    | Add -> make (Ptr (base, binop (Ty_bitv 32) Add offset hte1))
+    | Add -> make (Ptr (base, binop (T (Ty_bitv 32)) Add offset hte1))
     | _ -> make (Binop (ty, op, hte1, hte2)) )
   | Val (Num (I32 0l)), _ -> (
     match op with
@@ -233,7 +235,8 @@ let rec binop ty (op : binop) (hte1 : t) (hte2 : t) : t =
   (* | Val (Num (I32 1l)), Binop (_, And, _, _) -> hte2 *)
   | _ -> make (Binop (ty, op, hte1, hte2))
 
-let triop ty (op : triop) (e1 : t) (e2 : t) (e3 : t) : t =
+let triop (type a) (ty : a Ty.t') (op : a triop) (e1 : t) (e2 : t) (e3 : t) : t
+    =
   match op with
   | Ite -> (
     match e1.node with
@@ -262,10 +265,10 @@ let rec relop ty (op : relop) (hte1 : t) (hte2 : t) : t =
             else Val False )
     | _ -> make (Relop (ty, op, hte1, hte2)) )
   | Val (Num n), Ptr (b, { node = Val (Num o); _ }) ->
-    let base = Eval_numeric.eval_binop (Ty_bitv 32) Add (I32 b) o in
+    let base = Eval_numeric.eval_binop (T (Ty_bitv 32)) Add (I32 b) o in
     make (Val (if Eval_numeric.eval_relop ty op n base then True else False))
   | Ptr (b, { node = Val (Num o); _ }), Val (Num n) ->
-    let base = Eval_numeric.eval_binop (Ty_bitv 32) Add (I32 b) o in
+    let base = Eval_numeric.eval_binop (T (Ty_bitv 32)) Add (I32 b) o in
     make (Val (if Eval_numeric.eval_relop ty op base n then True else False))
   | _ -> make (Relop (ty, op, hte1, hte2))
 
@@ -387,13 +390,13 @@ module Bool = struct
     make
       ( match (view b1, view b2) with
       | Val True, Val True | Val False, Val False -> Val True
-      | _ -> Relop (Ty_bool, Eq, b1, b2) )
+      | _ -> Relop (T Ty_bool, Eq, b1, b2) )
 
   let distinct (b1 : t) (b2 : t) =
     make
       ( match (view b1, view b2) with
       | Val True, Val False | Val False, Val True -> Val True
-      | _ -> Relop (Ty_bool, Ne, b1, b2) )
+      | _ -> Relop (T Ty_bool, Ne, b1, b2) )
 
   let and_ (b1 : t) (b2 : t) =
     match (of_val (view b1), of_val (view b2)) with
@@ -401,7 +404,7 @@ module Bool = struct
     | Some true, _ -> b2
     | _, Some true -> b1
     | Some false, _ | _, Some false -> v false
-    | _ -> make (Binop (Ty_bool, And, b1, b2))
+    | _ -> make (Binop (T Ty_bool, And, b1, b2))
 
   let or_ (b1 : t) (b2 : t) =
     match (of_val (view b1), of_val (view b2)) with
@@ -409,78 +412,78 @@ module Bool = struct
     | Some false, _ -> b2
     | _, Some false -> b1
     | Some true, _ | _, Some true -> v true
-    | _ -> make (Binop (Ty_bool, Or, b1, b2))
+    | _ -> make (Binop (T Ty_bool, Or, b1, b2))
 
   let ite (c : t) (r1 : t) (r2 : t) = triop Ty_bool Ite c r1 r2
 end
 
-module Make (T : sig
-  type elt
+(* module Make (T : sig *)
+(*   type elt *)
 
-  val ty : Ty.t
+(*   val ty : [> `Ty_bitv | `Ty_fp ] Ty.t' *)
 
-  val num : elt -> Num.t
-end) =
-struct
-  let v i = make (Val (Num (T.num i)))
+(*   val num : elt -> Num.t *)
+(* end) = *)
+(* struct *)
+(*   let v i = make (Val (Num (T.num i))) *)
 
-  let sym x = mk_symbol Symbol.(x @: T.ty)
+(*   let sym x = mk_symbol Symbol.(x @: T T.ty) *)
 
-  let ( ~- ) e = make @@ Unop (T.ty, Neg, e)
+(*   let ( ~- ) e = make @@ Unop (T.ty, Neg, e) *)
 
-  let ( = ) e1 e2 = make @@ Relop (T.ty, Eq, e1, e2)
+(*   let ( = ) e1 e2 = make @@ Relop (T T.ty, Eq, e1, e2) *)
 
-  let ( != ) e1 e2 = make @@ Relop (T.ty, Ne, e1, e2)
+(*   let ( != ) e1 e2 = make @@ Relop (T T.ty, Ne, e1, e2) *)
 
-  let ( > ) e1 e2 = make @@ Relop (T.ty, Gt, e1, e2)
+(*   let ( > ) e1 e2 = make @@ Relop (T T.ty, Gt, e1, e2) *)
 
-  let ( >= ) e1 e2 = make @@ Relop (T.ty, Ge, e1, e2)
+(*   let ( >= ) e1 e2 = make @@ Relop (T T.ty, Ge, e1, e2) *)
 
-  let ( < ) e1 e2 = make @@ Relop (T.ty, Lt, e1, e2)
+(*   let ( < ) e1 e2 = make @@ Relop (T T.ty, Lt, e1, e2) *)
 
-  let ( <= ) e1 e2 = make @@ Relop (T.ty, Le, e1, e2)
-end
+(*   let ( <= ) e1 e2 = make @@ Relop (T T.ty, Le, e1, e2) *)
+(* end *)
 
-module Bitv = struct
-  module I8 = Make (struct
-    type elt = int
+(* module Bitv = struct *)
+(*   module I8 = Make (struct *)
+(*     type elt = int *)
 
-    let ty = Ty_bitv 8
+(*     let ty : [ `Ty_bitv ] Ty.t' = Ty_bitv 8 *)
 
-    let num i = Num.I8 i
-  end)
+(*     let num i = Num.I8 i *)
+(*   end) *)
 
-  module I32 = Make (struct
-    type elt = int32
+(*   module I32 = Make (struct *)
+(*     type elt = int32 *)
 
-    let ty = Ty_bitv 32
+(*     let ty = Ty_bitv 32 *)
 
-    let num i = Num.I32 i
-  end)
+(*     let num i = Num.I32 i *)
+(*   end) *)
 
-  module I64 = Make (struct
-    type elt = int64
+(*   module I64 = Make (struct *)
+(*     type elt = int64 *)
 
-    let ty = Ty_bitv 64
+(*     let ty = Ty_bitv 64 *)
 
-    let num i = Num.I64 i
-  end)
-end
+(*     let num i = Num.I64 i *)
+(*   end) *)
+(* end *)
 
-module Fpa = struct
-  module F32 = Make (struct
-    type elt = float
+(* module Fpa = struct *)
+(*   module F32 = Make (struct *)
+(*     type elt = float *)
 
-    let ty = Ty_fp 32
+(*     let ty = Ty_fp 32 *)
 
-    let num f = Num.F32 (Int32.bits_of_float f)
-  end)
+(*     let num f = Num.F32 (Int32.bits_of_float f) *)
+(*   end) *)
 
-  module F64 = Make (struct
-    type elt = float
+(*   module F64 = Make (struct *)
+(*     type elt = float *)
 
-    let ty = Ty_fp 64
+(*     let ty  = Ty_fp 64 *)
 
-    let num f = Num.F64 (Int64.bits_of_float f)
-  end)
-end
+(*     let num f = Num.F64 (Int64.bits_of_float f) *)
+(*   end) *)
+(* end *)

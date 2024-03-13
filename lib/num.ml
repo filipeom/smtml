@@ -29,11 +29,11 @@ let compare n1 n2 =
 
 let type_of (n : t) =
   match n with
-  | I8 _ -> Ty.(Ty_bitv 8)
-  | I32 _ -> Ty.(Ty_bitv 32)
-  | I64 _ -> Ty.(Ty_bitv 64)
-  | F32 _ -> Ty.(Ty_fp 32)
-  | F64 _ -> Ty.(Ty_fp 64)
+  | I8 _ -> Ty.(T (Ty_bitv 8))
+  | I32 _ -> Ty.(T (Ty_bitv 32))
+  | I64 _ -> Ty.(T (Ty_bitv 64))
+  | F32 _ -> Ty.(T (Ty_fp 32))
+  | F64 _ -> Ty.(T (Ty_fp 64))
 
 let pp fmt (n : t) =
   match n with

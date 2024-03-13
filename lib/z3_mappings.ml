@@ -42,7 +42,7 @@ module Fresh = struct
 
     let rtn = Z3.FloatingPoint.RoundingMode.mk_rtn ctx
 
-    let get_sort (e : Ty.t) : Z3.Sort.sort =
+    let get_sort (T e : Ty.t) : Z3.Sort.sort =
       match e with
       | Ty_int -> int_sort
       | Ty_real -> real_sort
@@ -53,7 +53,7 @@ module Fresh = struct
       | Ty_bitv 64 -> bv64_sort
       | Ty_fp 32 -> fp32_sort
       | Ty_fp 64 -> fp64_sort
-      | Ty_bitv _ | Ty_fp _ | Ty_var _ -> assert false
+      | Ty_bitv _ | Ty_fp _ -> assert false
 
     module Arithmetic = struct
       open Ty
@@ -62,25 +62,6 @@ module Fresh = struct
       let int i = Arithmetic.Integer.mk_numeral_i ctx i
 
       let float f = Arithmetic.Real.mk_numeral_s ctx (Float.to_string f)
-
-      let encode_unop op e =
-        match op with
-        | Neg -> Arithmetic.mk_unary_minus ctx e
-        | Abs ->
-          Boolean.mk_ite ctx
-            (Arithmetic.mk_gt ctx e (float 0.))
-            e
-            (Arithmetic.mk_unary_minus ctx e)
-        | Sqrt -> Arithmetic.mk_power ctx e (float 0.5)
-        | Ceil ->
-          let x_int = Arithmetic.Real.mk_real2int ctx e in
-          Boolean.mk_ite ctx
-            (Boolean.mk_eq ctx (Arithmetic.Integer.mk_int2real ctx x_int) e)
-            x_int
-            Arithmetic.(mk_add ctx [ x_int; Integer.mk_numeral_i ctx 1 ])
-        | Floor -> Arithmetic.Real.mk_real2int ctx e
-        | Nearest | Is_nan | _ ->
-          err {|Arith: Unsupported Z3 unop operator "%a"|} Ty.pp_unop op
 
       let encode_binop op e1 e2 =
         match op with
@@ -116,6 +97,9 @@ module Fresh = struct
         let str2int =
           FuncDecl.mk_func_decl_s ctx "StringToInt" [ str_sort ] int_sort
 
+        let encode_unop (op : [ `Ty_int ] unop) (e : expr) =
+          match op with Neg -> Arithmetic.mk_unary_minus ctx e
+
         let encode_cvtop op e =
           match op with
           | ToString -> FuncDecl.apply int2str [ e ]
@@ -136,6 +120,25 @@ module Fresh = struct
         let to_uint32 =
           FuncDecl.mk_func_decl_s ctx "ToUInt32" [ real_sort ] real_sort
 
+        let encode_unop (op : [ `Ty_real ] unop) (e : expr) =
+          match op with
+          | Neg -> Arithmetic.mk_unary_minus ctx e
+          | Abs ->
+            Boolean.mk_ite ctx
+              (Arithmetic.mk_gt ctx e (float 0.))
+              e
+              (Arithmetic.mk_unary_minus ctx e)
+          | Sqrt -> Arithmetic.mk_power ctx e (float 0.5)
+          | Ceil ->
+            let x_int = Arithmetic.Real.mk_real2int ctx e in
+            Boolean.mk_ite ctx
+              (Boolean.mk_eq ctx (Arithmetic.Integer.mk_int2real ctx x_int) e)
+              x_int
+              Arithmetic.(mk_add ctx [ x_int; Integer.mk_numeral_i ctx 1 ])
+          | Floor -> Arithmetic.Real.mk_real2int ctx e
+          | Nearest | Trunc ->
+            err {|Arith: Unsupported Z3 unop operator "%a"|} Ty.pp_unop op
+
         let encode_cvtop op e =
           match op with
           | ToString -> FuncDecl.apply real2str [ e ]
@@ -154,9 +157,8 @@ module Fresh = struct
 
       let false_ = Boolean.mk_false ctx
 
-      let encode_unop = function
+      let encode_unop : [ `Ty_bool ] unop -> expr -> expr = function
         | Not -> Boolean.mk_not ctx
-        | op -> err {|Bool: Unsupported Z3 unop operator "%a"|} Ty.pp_unop op
 
       let encode_binop op e1 e2 =
         match op with
@@ -167,7 +169,6 @@ module Fresh = struct
 
       let encode_triop = function
         | Ite -> Boolean.mk_ite ctx
-        | op -> err {|Bool: Unsupported Z3 triop operator "%a"|} Ty.pp_triop op
 
       let encode_relop op e1 e2 =
         match op with
@@ -190,7 +191,6 @@ module Fresh = struct
         match op with
         | Len -> Seq.mk_seq_length ctx e
         | Trim -> FuncDecl.apply trim [ e ]
-        | _ -> err {|Str: Unsupported Z3 unop operator "%a"|} Ty.pp_unop op
 
       let encode_binop op e1 e2 =
         match op with
@@ -201,7 +201,6 @@ module Fresh = struct
 
       let encode_triop = function
         | Substr -> Seq.mk_seq_extract ctx
-        | op -> err {|Str: Unsupported Z3 triop operator "%a"|} Ty.pp_triop op
 
       let encode_relop op e1 e2 =
         match op with
@@ -274,7 +273,6 @@ module Fresh = struct
         | Neg -> BitVector.mk_neg ctx
         | Clz -> clz
         | Ctz -> ctz
-        | op -> err {|Bv: Unsupported Z3 unary operator "%a"|} Ty.pp_unop op
 
       let encode_binop = function
         | Add -> BitVector.mk_add ctx
@@ -383,7 +381,6 @@ module Fresh = struct
         | Floor -> FloatingPoint.mk_round_to_integral ctx rtn
         | Trunc -> FloatingPoint.mk_round_to_integral ctx rtz
         | Nearest -> FloatingPoint.mk_round_to_integral ctx rne
-        | op -> err {|Fp: Unsupported Z3 unary operator "%a"|} Ty.pp_unop op
 
       let encode_binop = function
         | Add -> FloatingPoint.mk_add ctx rne
@@ -463,8 +460,9 @@ module Fresh = struct
       | Num (F32 x) -> F32.v x
       | Num (F64 x) -> F64.v x
 
-    let encode_unop = function
-      | Ty.Ty_int | Ty.Ty_real -> Arithmetic.encode_unop
+    let encode_unop : type a. a Ty.t' -> a Ty.unop -> expr -> expr = function
+      | Ty.Ty_int -> Arithmetic.Integer.encode_unop
+      | Ty.Ty_real -> Arithmetic.Real.encode_unop
       | Ty.Ty_bool -> Boolean.encode_unop
       | Ty.Ty_str -> Str.encode_unop
       | Ty.Ty_bitv 8 -> I8.encode_unop
@@ -472,9 +470,10 @@ module Fresh = struct
       | Ty.Ty_bitv 64 -> I64.encode_unop
       | Ty.Ty_fp 32 -> F32.encode_unop
       | Ty.Ty_fp 64 -> F64.encode_unop
-      | Ty.Ty_bitv _ | Ty_fp _ | Ty_var _ -> assert false
+      | Ty.Ty_bitv _ | Ty_fp _ -> assert false
 
-    let encode_binop = function
+    let encode_binop : type a. a Ty.t' -> Ty.binop -> expr -> expr -> expr =
+      function
       | Ty.Ty_int | Ty.Ty_real -> Arithmetic.encode_binop
       | Ty.Ty_bool -> Boolean.encode_binop
       | Ty.Ty_str -> Str.encode_binop
@@ -483,9 +482,10 @@ module Fresh = struct
       | Ty.Ty_bitv 64 -> I64.encode_binop
       | Ty.Ty_fp 32 -> F32.encode_binop
       | Ty.Ty_fp 64 -> F64.encode_binop
-      | Ty.Ty_bitv _ | Ty_fp _ | Ty_var _ -> assert false
+      | Ty.Ty_bitv _ | Ty_fp _ -> assert false
 
-    let encode_triop = function
+    let encode_triop :
+      type a. a Ty.t' -> a Ty.triop -> expr -> expr -> expr -> expr = function
       | Ty.Ty_int | Ty_real -> Arithmetic.encode_triop
       | Ty.Ty_bool -> Boolean.encode_triop
       | Ty.Ty_str -> Str.encode_triop
@@ -494,9 +494,10 @@ module Fresh = struct
       | Ty.Ty_bitv 64 -> I64.encode_triop
       | Ty.Ty_fp 32 -> F32.encode_triop
       | Ty.Ty_fp 64 -> F64.encode_triop
-      | Ty.Ty_bitv _ | Ty_fp _ | Ty_var _ -> assert false
+      | Ty.Ty_bitv _ | Ty_fp _ -> assert false
 
-    let encode_relop = function
+    let encode_relop : type a. a Ty.t' -> Ty.relop -> expr -> expr -> expr =
+      function
       | Ty.Ty_int | Ty.Ty_real -> Arithmetic.encode_relop
       | Ty.Ty_bool -> Boolean.encode_relop
       | Ty.Ty_str -> Str.encode_relop
@@ -505,9 +506,9 @@ module Fresh = struct
       | Ty.Ty_bitv 64 -> I64.encode_relop
       | Ty.Ty_fp 32 -> F32.encode_relop
       | Ty.Ty_fp 64 -> F64.encode_relop
-      | Ty.Ty_bitv _ | Ty_fp _ | Ty_var _ -> assert false
+      | Ty.Ty_bitv _ | Ty_fp _ -> assert false
 
-    let encode_cvtop = function
+    let encode_cvtop : type a. a Ty.t' -> Ty.cvtop -> expr -> expr = function
       | Ty.Ty_int -> Arithmetic.Integer.encode_cvtop
       | Ty.Ty_real -> Arithmetic.Real.encode_cvtop
       | Ty.Ty_bool -> Boolean.encode_cvtop
@@ -517,7 +518,7 @@ module Fresh = struct
       | Ty.Ty_bitv 64 -> I64.encode_cvtop
       | Ty.Ty_fp 32 -> F32.encode_cvtop
       | Ty.Ty_fp 64 -> F64.encode_cvtop
-      | Ty.Ty_bitv _ | Ty_fp _ | Ty_var _ -> assert false
+      | Ty.Ty_bitv _ | Ty_fp _ -> assert false
 
     (* let encode_quantifier (t : bool) (vars_list : Symbol.t list) *)
     (*   (body : Z3.Expr.expr) (patterns : Z3.Quantifier.Pattern.pattern list) : *)
@@ -550,7 +551,7 @@ module Fresh = struct
       | Unop (ty, op, e) ->
         let e' = encode_expr e in
         encode_unop ty op e'
-      | Binop (ty, op, e1, e2) ->
+      | Binop (T ty, op, e1, e2) ->
         let e1' = encode_expr e1 in
         let e2' = encode_expr e2 in
         encode_binop ty op e1' e2'
@@ -559,11 +560,11 @@ module Fresh = struct
         and e2' = encode_expr e2
         and e3' = encode_expr e3 in
         encode_triop ty op e1' e2' e3'
-      | Relop (ty, op, e1, e2) ->
+      | Relop (T ty, op, e1, e2) ->
         let e1' = encode_expr e1
         and e2' = encode_expr e2 in
         encode_relop ty op e1' e2'
-      | Cvtop (ty, op, e) ->
+      | Cvtop (T ty, op, e) ->
         let e' = encode_expr e in
         encode_cvtop ty op e'
       | Symbol s ->
@@ -735,38 +736,39 @@ module Fresh = struct
       (* we have a model with completion => should never be None *)
       let e = Z3.Model.eval model (encode_expr c) true |> Option.get in
       match (Expr.ty c, Z3.Sort.get_sort_kind @@ Z3.Expr.get_sort e) with
-      | Ty_int, Z3enums.INT_SORT ->
+      | T Ty_int, Z3enums.INT_SORT ->
         Int (Z.to_int @@ Z3.Arithmetic.Integer.get_big_int e)
-      | Ty_real, Z3enums.REAL_SORT ->
+      | T Ty_real, Z3enums.REAL_SORT ->
         Real (Q.to_float @@ Z3.Arithmetic.Real.get_ratio e)
-      | Ty_bool, Z3enums.BOOL_SORT -> (
+      | T Ty_bool, Z3enums.BOOL_SORT -> (
         match Z3.Boolean.get_bool_value e with
         | Z3enums.L_TRUE -> True
         | Z3enums.L_FALSE -> False
         | Z3enums.L_UNDEF ->
           (* It can never be something else *)
           assert false )
-      | Ty_str, Z3enums.SEQ_SORT -> Str (Z3.Seq.get_string ctx e)
-      | Ty_bitv 8, Z3enums.BV_SORT -> Num (I8 (Int64.to_int (int64_of_bv e)))
-      | Ty_bitv 32, Z3enums.BV_SORT -> Num (I32 (Int64.to_int32 (int64_of_bv e)))
-      | Ty_bitv 64, Z3enums.BV_SORT -> Num (I64 (int64_of_bv e))
-      | Ty_fp 32, Z3enums.FLOATING_POINT_SORT ->
+      | T Ty_str, Z3enums.SEQ_SORT -> Str (Z3.Seq.get_string ctx e)
+      | T (Ty_bitv 8), Z3enums.BV_SORT -> Num (I8 (Int64.to_int (int64_of_bv e)))
+      | T (Ty_bitv 32), Z3enums.BV_SORT ->
+        Num (I32 (Int64.to_int32 (int64_of_bv e)))
+      | T (Ty_bitv 64), Z3enums.BV_SORT -> Num (I64 (int64_of_bv e))
+      | T (Ty_fp 32), Z3enums.FLOATING_POINT_SORT ->
         Num (F32 (Int32.bits_of_float @@ float_of_numeral e))
-      | Ty_fp 64, Z3enums.FLOATING_POINT_SORT ->
+      | T (Ty_fp 64), Z3enums.FLOATING_POINT_SORT ->
         Num (F64 (Int64.bits_of_float @@ float_of_numeral e))
       | _ -> assert false
 
     let type_of_sort (sort : Z3.Sort.sort) : Ty.t =
       match Z3.Sort.get_sort_kind sort with
-      | Z3enums.INT_SORT -> Ty.Ty_int
-      | Z3enums.REAL_SORT -> Ty.Ty_real
-      | Z3enums.BOOL_SORT -> Ty.Ty_bool
-      | Z3enums.SEQ_SORT -> Ty.Ty_str
-      | Z3enums.BV_SORT -> Ty.Ty_bitv (Z3.BitVector.get_size sort)
+      | Z3enums.INT_SORT -> Ty.T Ty_int
+      | Z3enums.REAL_SORT -> Ty.T Ty_real
+      | Z3enums.BOOL_SORT -> Ty.T Ty_bool
+      | Z3enums.SEQ_SORT -> Ty.T Ty_str
+      | Z3enums.BV_SORT -> Ty.T (Ty_bitv (Z3.BitVector.get_size sort))
       | Z3enums.FLOATING_POINT_SORT ->
         let ebits = Z3.FloatingPoint.get_ebits ctx sort in
         let sbits = Z3.FloatingPoint.get_sbits ctx sort in
-        Ty_fp (ebits + sbits)
+        Ty.T (Ty_fp (ebits + sbits))
       | _ -> assert false
 
     let symbols_of_model (model : Z3.Model.model) : Symbol.t list =

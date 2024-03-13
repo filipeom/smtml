@@ -59,7 +59,8 @@ let s_expr :=
 let paren_op :=
   | PTR; LPAREN; _ = TYPE; x = NUM; RPAREN; e = s_expr;
     { Ptr (Int32.of_int x, e) }
-  | (ty, op) = UNARY; e = s_expr; <Unop>
+  | (ty, op) = UNARY; e = s_expr;
+    { let (T ty) = ty in Unop (ty, op, e) }
   | (ty, op) = BINARY; e1 = s_expr; e2 = s_expr; <Binop>
   | (ty, op) = TERNARY; e1 = s_expr; e2 = s_expr; e3 = s_expr; <Triop>
   | (ty, op) = CVTOP; e = s_expr; <Cvtop>
@@ -75,14 +76,14 @@ let spec_constant :=
   | LPAREN; ty = TYPE; x = NUM; RPAREN;
     {
       match ty with
-      | Ty_bitv 32 -> Num (I32 (Int32.of_int x))
-      | Ty_bitv 64 -> Num (I64 (Int64.of_int x))
+      | T (Ty_bitv 32) -> Num (I32 (Int32.of_int x))
+      | T (Ty_bitv 64) -> Num (I64 (Int64.of_int x))
       | _ -> failwith "invalid bitv type"
     }
   | LPAREN; ty = TYPE; x = DEC; RPAREN;
     {
       match ty with
-      | Ty_fp 32 -> Num (F32 (Int32.bits_of_float x))
-      | Ty_fp 64 -> Num (F64 (Int64.bits_of_float x))
+      | T (Ty_fp 32) -> Num (F32 (Int32.bits_of_float x))
+      | T (Ty_fp 64) -> Num (F64 (Int64.bits_of_float x))
       | _ -> failwith "invalid fp type"
     }

@@ -8,7 +8,7 @@ let get_contents = function
       ~finally:(fun () -> close_in chan)
       (fun () -> In_channel.input_all chan)
 
-let parse_file file = get_contents file |> Parse.from_string
+let _parse_file file = get_contents file |> Parse.from_string
 
 type prover =
   | Z3_prover
@@ -24,7 +24,7 @@ let prover_conv =
     ]
 
 let parse_cmdline =
-  let aux files prover incremental debug print_statistics =
+  let aux _files prover incremental debug print_statistics =
     let module Mappings =
       ( val match prover with
             | Z3_prover -> (module Z3_mappings)
@@ -38,21 +38,21 @@ let parse_cmdline =
             else (module Solver.Batch (Mappings))
           : Solver_intf.S )
     in
-    let module Interpret = Interpret.Make (Solver) in
-    let state =
-      match files with
-      | [] ->
-        let ast = parse_file "-" in
-        Some (Interpret.start ast)
-      | _ ->
-        List.fold_left
-          (fun state file ->
-            let ast = Parse.from_file ~filename:file in
-            Some (Interpret.start ?state ast) )
-          None files
+    (* let module Interpret = Interpret.Make (Solver) in *)
+    let state = None
+      (* match files with *)
+      (* | [] -> *)
+      (*   let ast = parse_file "-" in *)
+      (*   Some (Interpret.start ast) *)
+      (* | _ -> *)
+      (*   List.fold_left *)
+      (*     (fun state file -> *)
+      (*       let ast = Parse.from_file ~filename:file in *)
+      (*       Some (Interpret.start ?state ast) ) *)
+      (*     None files *)
     in
     if print_statistics then begin
-      let state = Option.get state in
+      let _state = Option.get state in
       let stats : Gc.stat = Gc.stat () in
       Format.eprintf
         "@[<v 2>(statistics @\n\
@@ -60,9 +60,9 @@ let parse_cmdline =
          (solver-time %f)@\n\
          (solver-calls %d)@\n\
          @[<v 2>(solver-misc @\n\
-         %a@])@])@\n"
+         @])@])@\n"
         stats.major_words !Solver.solver_time !Solver.solver_count
-        Solver.pp_statistics state.solver
+        (* Solver.pp_statistics state.solver *)
     end
   in
   let open Cmdliner in

@@ -6,7 +6,7 @@ exception Num of Ty.t
 
 exception TypeError of int * Num.t * Ty.t
 
-val eval_unop : Ty.t -> unop -> Num.t -> Num.t
+val eval_unop : 'a Ty.t' -> 'a unop -> Num.t -> Num.t
 
 val eval_binop : Ty.t -> binop -> Num.t -> Num.t -> Num.t
 

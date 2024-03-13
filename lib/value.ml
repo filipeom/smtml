@@ -28,10 +28,10 @@ let compare v1 v2 =
 
 let type_of (v : t) : Ty.t =
   match v with
-  | True | False -> Ty_bool
-  | Int _ -> Ty_int
-  | Real _ -> Ty_real
-  | Str _ -> Ty_str
+  | True | False -> T Ty_bool
+  | Int _ -> T Ty_int
+  | Real _ -> T Ty_real
+  | Str _ -> T Ty_str
   | Num n -> Num.type_of n
 
 let pp fmt (v : t) =

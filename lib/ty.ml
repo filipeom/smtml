@@ -7,29 +7,30 @@ type _ cast =
   | C32 : int32 cast
   | C64 : int64 cast
 
-type t =
-  | Ty_int
-  | Ty_real
-  | Ty_bool
-  | Ty_str
-  | Ty_bitv of int
-  | Ty_fp of int
-  | Ty_var of { id : int }
+type _ t' =
+  | Ty_int : [ `Ty_int ] t'
+  | Ty_real : [ `Ty_real ] t'
+  | Ty_bool : [ `Ty_bool ] t'
+  | Ty_str : [ `Ty_str ] t'
+  | Ty_bitv : int -> [ `Ty_bitv ] t'
+  | Ty_fp : int -> [ `Ty_fp ] t'
 
-type unop =
-  | Abs
-  | Ceil
-  | Clz
-  | Ctz
-  | Floor
-  | Is_nan
-  | Len
-  | Neg
-  | Nearest
-  | Not
-  | Sqrt
-  | Trim
-  | Trunc
+type t = T : 'a t' -> t
+
+type _ unop =
+  | Abs : [< `Ty_real | `Ty_fp ] unop
+  | Ceil : [< `Ty_real | `Ty_fp ] unop
+  | Clz : [ `Ty_bitv ] unop
+  | Ctz : [ `Ty_bitv ] unop
+  | Floor : [< `Ty_real | `Ty_fp ] unop
+  | Is_nan : [ `Ty_fp ] unop
+  | Len : [ `Ty_str ] unop
+  | Neg : [< `Ty_int | `Ty_real | `Ty_bitv | `Ty_fp ] unop
+  | Nearest : [< `Ty_real | `Ty_fp ] unop
+  | Not : [< `Ty_bitv | `Ty_bool ] unop
+  | Sqrt : [< `Ty_real | `Ty_fp ] unop
+  | Trim : [ `Ty_str ] unop
+  | Trunc : [< `Ty_real | `Ty_fp ] unop
 
 type binop =
   | Add
@@ -65,9 +66,9 @@ type relop =
   | Ge
   | GeU
 
-type triop =
-  | Ite
-  | Substr
+type _ triop =
+  | Ite : [ `Ty_bool ] triop
+  | Substr : [ `Ty_str ] triop
 
 type cvtop =
   | ToString
@@ -119,7 +120,7 @@ type logic =
   | UFLRA
   | UFNIA
 
-let pp_unop fmt (op : unop) =
+let pp_unop (type a) fmt (op : a unop) =
   match op with
   | Neg -> pp_string fmt "neg"
   | Not -> pp_string fmt "not"
@@ -158,7 +159,7 @@ let pp_binop fmt (op : binop) =
   | Nth -> pp_string fmt "nth"
   | Concat -> pp_string fmt "++"
 
-let pp_triop fmt (op : triop) =
+let pp_triop (type a) fmt (op : a triop) =
   match op with Ite -> pp_string fmt "ite" | Substr -> pp_string fmt "sub"
 
 let pp_relop fmt (op : relop) =
@@ -198,14 +199,14 @@ let pp_cvtop fmt (op : cvtop) =
   | String_to_code -> pp_string fmt "string_to_code"
   | String_from_code -> pp_string fmt "string_from_code"
 
-let pp fmt = function
+let pp fmt (T ty) =
+  match ty with
   | Ty_int -> pp_string fmt "int"
   | Ty_real -> pp_string fmt "real"
   | Ty_bool -> pp_string fmt "bool"
   | Ty_str -> pp_string fmt "str"
   | Ty_bitv n -> fprintf fmt "i%d" n
   | Ty_fp n -> fprintf fmt "f%d" n
-  | Ty_var { id } -> fprintf fmt "'a%d" id
 
 let pp_logic fmt : logic -> unit = function
   | AUFLIA -> pp_string fmt "AUFLIA"
@@ -234,18 +235,17 @@ let pp_logic fmt : logic -> unit = function
   | UFLRA -> pp_string fmt "UFLRA"
   | UFNIA -> pp_string fmt "UFNIA"
 
-let equal t1 t2 =
+let equal (T t1) (T t2) =
   match (t1, t2) with
   | Ty_int, Ty_int | Ty_real, Ty_real | Ty_bool, Ty_bool | Ty_str, Ty_str ->
     true
   | Ty_bitv n1, Ty_bitv n2 | Ty_fp n1, Ty_fp n2 -> n1 = n2
-  | Ty_var { id = id1 }, Ty_var { id = id2 } -> id1 = id2
   | _ -> false
 
 let string_of_type (ty : t) : string = Format.asprintf "%a" pp ty
 
-let size (ty : t) : int =
+let size (T ty : t) : int =
   match ty with
   | Ty_bitv n | Ty_fp n -> n / 8
   | Ty_int | Ty_bool -> 4
-  | Ty_real | Ty_str | Ty_var _ -> assert false
+  | Ty_real | Ty_str -> assert false

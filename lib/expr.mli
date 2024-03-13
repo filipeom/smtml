@@ -5,9 +5,9 @@ and expr =
   | Val of Value.t
   | Ptr of int32 * t
   | Symbol of Symbol.t
-  | Unop of Ty.t * Ty.unop * t
+  | Unop : 'a Ty.t' * 'a Ty.unop * t -> expr
   | Binop of Ty.t * Ty.binop * t * t
-  | Triop of Ty.t * Ty.triop * t * t * t
+  | Triop : 'a Ty.t' * 'a Ty.triop * t * t * t -> expr
   | Relop of Ty.t * Ty.relop * t * t
   | Cvtop of Ty.t * Ty.cvtop * t
   | Extract of t * int * int
@@ -39,7 +39,7 @@ val pp_list : Format.formatter -> t list -> unit
 
 val to_string : t -> string
 
-val unop : Ty.t -> Ty.unop -> t -> t
+val unop : 'a Ty.t' -> 'a Ty.unop -> t -> t
 
 val binop : Ty.t -> Ty.binop -> t -> t -> t
 
@@ -74,16 +74,16 @@ module Bool : sig
   val ite : t -> t -> t -> t
 end
 
-module Bitv : sig
-  module I8 : Constructors_intf.Infix with type elt := int and type t := t
+(* module Bitv : sig *)
+(*   module I8 : Constructors_intf.Infix with type elt := int and type t := t *)
 
-  module I32 : Constructors_intf.Infix with type elt := int32 and type t := t
+(*   module I32 : Constructors_intf.Infix with type elt := int32 and type t := t *)
 
-  module I64 : Constructors_intf.Infix with type elt := int64 and type t := t
-end
+(*   module I64 : Constructors_intf.Infix with type elt := int64 and type t := t *)
+(* end *)
 
-module Fpa : sig
-  module F32 : Constructors_intf.Infix with type elt := float and type t := t
+(* module Fpa : sig *)
+(*   module F32 : Constructors_intf.Infix with type elt := float and type t := t *)
 
-  module F64 : Constructors_intf.Infix with type elt := float and type t := t
-end
+(*   module F64 : Constructors_intf.Infix with type elt := float and type t := t *)
+(* end *)
