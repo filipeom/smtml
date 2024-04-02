@@ -29,8 +29,6 @@ type unop =
   | Nearest
   (* String *)
   | Seq_length (* (str.len String Int) *)
-  | Seq_to_lowercase
-  | Seq_to_uppercase
   | Trim (* uninterpreted *)
 
 type binop =
