@@ -6,6 +6,7 @@ type t =
   | Str of string
   | Num of Num.t
   | List of t list
+  | App : [> `Op of string ] * t list -> t
 
 val equal : t -> t -> bool
 

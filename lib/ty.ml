@@ -17,6 +17,7 @@ type t =
   | Ty_list
   | Ty_tuple
   | Ty_array
+  | Ty_app
 
 type unop =
   | Neg
@@ -249,6 +250,7 @@ let pp fmt = function
   | Ty_list -> pp_string fmt "list"
   | Ty_tuple -> pp_string fmt "tuple"
   | Ty_array -> pp_string fmt "array"
+  | Ty_app -> pp_string fmt "app"
 
 let pp_logic fmt : logic -> unit = function
   | AUFLIA -> pp_string fmt "AUFLIA"
@@ -290,4 +292,4 @@ let size (ty : t) : int =
   match ty with
   | Ty_bitv n | Ty_fp n -> n / 8
   | Ty_int | Ty_bool -> 4
-  | Ty_real | Ty_str | Ty_list | Ty_array | Ty_tuple -> assert false
+  | Ty_real | Ty_str | Ty_list | Ty_array | Ty_tuple | Ty_app -> assert false

@@ -53,7 +53,7 @@ module Fresh = struct
       | Ty_bitv 64 -> bv64_sort
       | Ty_fp 32 -> fp32_sort
       | Ty_fp 64 -> fp64_sort
-      | Ty_bitv _ | Ty_fp _ | Ty_list | Ty_tuple | Ty_array -> assert false
+      | Ty_bitv _ | Ty_fp _ | Ty_list | Ty_tuple | Ty_array | Ty_app -> assert false
 
     module Arithmetic = struct
       open Ty
@@ -464,6 +464,7 @@ module Fresh = struct
       | Num (F32 x) -> F32.v x
       | Num (F64 x) -> F64.v x
       | List _ -> assert false
+      | App _ -> assert false
 
     let encode_unop = function
       | Ty.Ty_int | Ty.Ty_real -> Arithmetic.encode_unop
@@ -474,7 +475,7 @@ module Fresh = struct
       | Ty.Ty_bitv 64 -> I64.encode_unop
       | Ty.Ty_fp 32 -> F32.encode_unop
       | Ty.Ty_fp 64 -> F64.encode_unop
-      | Ty.Ty_bitv _ | Ty_fp _ | Ty_list | Ty_array | Ty_tuple -> assert false
+      | Ty.Ty_bitv _ | Ty_fp _ | Ty_list | Ty_array | Ty_tuple | Ty_app -> assert false
 
     let encode_binop = function
       | Ty.Ty_int | Ty.Ty_real -> Arithmetic.encode_binop
@@ -485,7 +486,7 @@ module Fresh = struct
       | Ty.Ty_bitv 64 -> I64.encode_binop
       | Ty.Ty_fp 32 -> F32.encode_binop
       | Ty.Ty_fp 64 -> F64.encode_binop
-      | Ty.Ty_bitv _ | Ty_fp _ | Ty_list | Ty_array | Ty_tuple -> assert false
+      | Ty.Ty_bitv _ | Ty_fp _ | Ty_list | Ty_array | Ty_tuple | Ty_app -> assert false
 
     let encode_triop = function
       | Ty.Ty_int | Ty_real -> Arithmetic.encode_triop
@@ -496,7 +497,7 @@ module Fresh = struct
       | Ty.Ty_bitv 64 -> I64.encode_triop
       | Ty.Ty_fp 32 -> F32.encode_triop
       | Ty.Ty_fp 64 -> F64.encode_triop
-      | Ty.Ty_bitv _ | Ty_fp _ | Ty_list | Ty_array | Ty_tuple -> assert false
+      | Ty.Ty_bitv _ | Ty_fp _ | Ty_list | Ty_array | Ty_tuple | Ty_app -> assert false
 
     let encode_relop = function
       | Ty.Ty_int | Ty.Ty_real -> Arithmetic.encode_relop
@@ -507,7 +508,7 @@ module Fresh = struct
       | Ty.Ty_bitv 64 -> I64.encode_relop
       | Ty.Ty_fp 32 -> F32.encode_relop
       | Ty.Ty_fp 64 -> F64.encode_relop
-      | Ty.Ty_bitv _ | Ty_fp _ | Ty_list | Ty_array | Ty_tuple -> assert false
+      | Ty.Ty_bitv _ | Ty_fp _ | Ty_list | Ty_array | Ty_tuple | Ty_app -> assert false
 
     let encode_cvtop = function
       | Ty.Ty_int -> Arithmetic.Integer.encode_cvtop
@@ -519,7 +520,7 @@ module Fresh = struct
       | Ty.Ty_bitv 64 -> I64.encode_cvtop
       | Ty.Ty_fp 32 -> F32.encode_cvtop
       | Ty.Ty_fp 64 -> F64.encode_cvtop
-      | Ty.Ty_bitv _ | Ty_fp _ | Ty_list | Ty_array | Ty_tuple -> assert false
+      | Ty.Ty_bitv _ | Ty_fp _ | Ty_list | Ty_array | Ty_tuple | Ty_app -> assert false
 
     (* let encode_quantifier (t : bool) (vars_list : Symbol.t list) *)
     (*   (body : Z3.Expr.expr) (patterns : Z3.Quantifier.Pattern.pattern list) : *)
