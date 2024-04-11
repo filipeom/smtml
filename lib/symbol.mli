@@ -17,21 +17,23 @@
 (***************************************************************************)
 
 type t =
-  { ty : Ty.t
-  ; name : string
-  }
+  | S :
+      { ty : 'a Ty.t
+      ; name : string
+      }
+      -> t
 
-val ( @: ) : string -> Ty.t -> t
+val ( @: ) : string -> 'a Ty.t -> t
 
-val make : Ty.t -> string -> t
+val make : 'a Ty.t -> string -> t
 
-val mk_symbol : Ty.t -> string -> t [@@deprecated "Please use 'make' instead"]
+val mk_symbol : 'a Ty.t -> string -> t [@@deprecated "Please use 'make' instead"]
 
 val equal : t -> t -> Bool.t
 
 val rename : t -> string -> t
 
-val type_of : t -> Ty.t
+val type_of : t -> 'a Ty.t
 
 val to_string : t -> string
 

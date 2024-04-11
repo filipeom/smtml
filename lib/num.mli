@@ -27,7 +27,7 @@ val ( = ) : t -> t -> bool
 
 val compare : t -> t -> int
 
-val type_of : t -> Ty.t
+val type_of : t -> 'a Ty.t
 
 val pp : Format.formatter -> t -> unit
 

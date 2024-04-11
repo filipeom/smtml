@@ -265,7 +265,6 @@ module Make (M : Mappings_intf.M) = struct
       | Ctz -> ctz
       | Neg -> Bitv.neg
       | Not -> Bitv.lognot
-      | op -> err {|Bitv: Unsupported unary operator "%a"|} Ty.pp_unop op
 
     let binop = function
       | Add -> Bitv.add

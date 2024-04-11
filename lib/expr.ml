@@ -28,7 +28,7 @@ and expr =
   | Array of t array
   | Tuple of t list
   | App : [> `Op of string ] * t list -> expr
-  | Unop of Ty.t * unop * t
+  | Unop : Ty.t * 'a unop * t -> expr
   | Binop of Ty.t * binop * t * t
   | Triop of Ty.t * triop * t * t * t
   | Relop of Ty.t * relop * t * t
@@ -52,8 +52,8 @@ module Hc = Hc.Make (struct
       Array.(length a1 = length a2) && Array.for_all2 ( == ) a1 a2
     | Tuple l1, Tuple l2 -> list_eq l1 l2
     | App (`Op x1, l1), App (`Op x2, l2) -> String.equal x1 x2 && list_eq l1 l2
-    | Unop (t1, op1, e1), Unop (t2, op2, e2) ->
-      Ty.equal t1 t2 && op1 = op2 && e1 == e2
+    | Unop (t1, _op1, e1), Unop (t2, _op2, e2) ->
+      Ty.equal t1 t2 && (* op1 = op2 && *) e1 == e2
     | Binop (t1, op1, e1, e3), Binop (t2, op2, e2, e4) ->
       Ty.equal t1 t2 && op1 = op2 && e1 == e2 && e3 == e4
     | Relop (t1, op1, e1, e3), Relop (t2, op2, e2, e4) ->
@@ -246,10 +246,10 @@ let to_string e = Format.asprintf "%a" pp e
 
 let value (v : Value.t) : t = make (Val v) [@@inline]
 
-let unop' (ty : Ty.t) (op : unop) (hte : t) : t = make (Unop (ty, op, hte))
+let unop' (ty : Ty.t) (op : 'a unop) (hte : t) : t = make (Unop (ty, op, hte))
 [@@inline]
 
-let unop (ty : Ty.t) (op : unop) (hte : t) : t =
+let unop (ty : Ty.t) (op : 'a unop) (hte : t) : t =
   match view hte with
   | Val v -> value (Eval.unop ty op v)
   | _ -> unop' ty op hte

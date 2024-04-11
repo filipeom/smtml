@@ -20,16 +20,16 @@ open Ty
 
 exception DivideByZero
 
-exception Value of Ty.t
+exception Value of string
 
-exception TypeError of int * Value.t * Ty.t
+exception TypeError of int * Value.t * string
 
-val unop : Ty.t -> unop -> Value.t -> Value.t
+val unop : 'a Ty.t -> 'a unop -> Value.t -> Value.t
 
-val binop : Ty.t -> binop -> Value.t -> Value.t -> Value.t
+val binop : 'a Ty.t -> binop -> Value.t -> Value.t -> Value.t
 
-val triop : Ty.t -> triop -> Value.t -> Value.t -> Value.t -> Value.t
+val triop : 'a Ty.t -> triop -> Value.t -> Value.t -> Value.t -> Value.t
 
-val relop : Ty.t -> relop -> Value.t -> Value.t -> bool
+val relop : 'a Ty.t -> relop -> Value.t -> Value.t -> bool
 
-val cvtop : Ty.t -> cvtop -> Value.t -> Value.t
+val cvtop : 'a Ty.t -> cvtop -> Value.t -> Value.t

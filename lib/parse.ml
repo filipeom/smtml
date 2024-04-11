@@ -16,23 +16,24 @@
 (* along with this program.  If not, see <https://www.gnu.org/licenses/>.  *)
 (***************************************************************************)
 
-open Lexer
+(* open Lexer *)
 open Lexing
 open Format
 
-let pp_pos fmt lexbuf =
+let _pp_pos fmt lexbuf =
   let pos = lexbuf.lex_curr_p in
   fprintf fmt "%s:%d:%d" pos.pos_fname pos.pos_lnum
     (pos.pos_cnum - pos.pos_bol + 1)
 
-let parse_with_error lexbuf =
-  try Parser.script Lexer.token lexbuf with
-  | SyntaxError msg ->
-    fprintf err_formatter "%a: %s\n" pp_pos lexbuf msg;
-    []
-  | Parser.Error ->
-    fprintf err_formatter "%a: syntax error\n" pp_pos lexbuf;
-    exit 1
+let parse_with_error _lexbuf =
+  (* try Parser.script Lexer.token lexbuf with *)
+  (* | SyntaxError msg -> *)
+  (*   fprintf err_formatter "%a: %s\n" pp_pos lexbuf msg; *)
+  (*   [] *)
+  (* | Parser.Error -> *)
+  (*   fprintf err_formatter "%a: syntax error\n" pp_pos lexbuf; *)
+  (*   exit 1 *)
+  assert false
 
 let from_file ~filename =
   let chan = match filename with "-" -> stdin | _ -> open_in filename in

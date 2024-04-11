@@ -17,15 +17,15 @@
   expr
   interpret
   interpret_intf
-  lexer
+  ; lexer
   log
-  mappings
+  ; mappings
   mappings_intf
   model
   num
   op_intf
   optimizer
-  parser
+  ; parser
   params
   parse
   solver
@@ -35,8 +35,9 @@
   utils
   value
   z3_mappings
-  z3_mappings2)
- (private_modules lexer parser)
+  ; z3_mappings2
+  )
+ ; (private_modules lexer parser)
  (libraries hc z3 ocaml_intrinsics)
  (instrumentation
   (backend bisect_ppx --exclusions lib/bisect.exclude)

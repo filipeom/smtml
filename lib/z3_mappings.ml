@@ -295,7 +295,6 @@ module Fresh = struct
         | Neg -> BitVector.mk_neg ctx
         | Clz -> clz
         | Ctz -> ctz
-        | op -> err {|Bv: Unsupported Z3 unary operator "%a"|} Ty.pp_unop op
 
       let encode_binop = function
         | Add -> BitVector.mk_add ctx

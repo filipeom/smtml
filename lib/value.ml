@@ -44,13 +44,14 @@ let compare v1 v2 =
   | Num x1, Num x2 -> Num.compare x1 x2
   | _ -> compare v1 v2
 
-let type_of (v : t) : Ty.t =
-  match v with
-  | True | False -> Ty_bool
-  | Int _ -> Ty_int
-  | Real _ -> Ty_real
-  | Str _ -> Ty_str
-  | Num n -> Num.type_of n
+let type_of (_v : t) : 'a Ty.t =
+  (* match v with *)
+  (* | True | False -> Ty_bool *)
+  (* | Int _ -> Ty_int *)
+  (* | Real _ -> Ty_real *)
+  (* | Str _ -> Ty_str *)
+  (* | Num n -> Num.type_of n *)
+  assert false
 
 let pp fmt (v : t) =
   let open Format in

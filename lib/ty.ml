@@ -20,38 +20,38 @@ let pp_string = Format.pp_print_string
 
 let fprintf = Format.fprintf
 
-type _ cast =
+type 'a cast =
   | C8 : int cast
   | C32 : int32 cast
   | C64 : int64 cast
 
-type t =
-  | Ty_int
-  | Ty_real
-  | Ty_bool
-  | Ty_str
-  | Ty_bitv of int
-  | Ty_fp of int
-  | Ty_list
-  | Ty_tuple
-  | Ty_array
+type 'a t =
+  | Ty_int : [ `Ty_int ] t
+  | Ty_real : [ `Ty_real ] t
+  | Ty_bool : [ `Ty_bool ] t
+  | Ty_str : [ `Ty_str ] t
+  | Ty_bitv : int -> [ `Ty_bitv ] t
+  | Ty_fp : int -> [ `Ty_fp ] t
+  | Ty_list : [ `Ty_list ] t
+  | Ty_tuple : [ `Ty_tuple ] t
+  | Ty_array : [ `Ty_array ] t
 
-type unop =
-  | Neg
-  | Not
-  | Clz
-  | Ctz
+type 'a unop =
+  | Neg : [< `Ty_int | `Ty_real | `Ty_bitv | `Ty_fp ] unop
+  | Not : [< `Ty_bitv | `Ty_bool ] unop
+  | Clz : [> `Ty_bitv ] unop
+  | Ctz : [> `Ty_bitv ] unop
   (* Float *)
-  | Abs
-  | Sqrt
-  | Is_nan
-  | Ceil
-  | Floor
-  | Trunc
-  | Nearest
+  | Abs : [< `Ty_real | `Ty_fp ] unop
+  | Sqrt : [< `Ty_real | `Ty_fp ] unop
+  | Is_nan : [< `Ty_real | `Ty_fp ] unop
+  | Ceil : [< `Ty_real | `Ty_fp ] unop
+  | Floor : [< `Ty_real | `Ty_fp ] unop
+  | Trunc : [< `Ty_real | `Ty_fp ] unop
+  | Nearest : [< `Ty_real | `Ty_fp ] unop
   (* String *)
-  | Seq_length
-  | Trim
+  | Seq_length : [> `Ty_str ] unop
+  | Trim : [> `Ty_str ] unop
 
 type binop =
   | Add
@@ -152,7 +152,7 @@ type logic =
   | UFLRA
   | UFNIA
 
-let pp_unop fmt (op : unop) =
+let pp_unop (type a) fmt (op : a unop) =
   match op with
   | Neg -> pp_string fmt "neg"
   | Not -> pp_string fmt "not"
@@ -241,7 +241,8 @@ let pp_cvtop fmt (op : cvtop) =
   | String_to_int -> pp_string fmt "to_int"
   | String_from_int -> pp_string fmt "from_int"
 
-let pp fmt = function
+let pp : type a. Format.formatter -> a t -> unit =
+ fun fmt -> function
   | Ty_int -> pp_string fmt "int"
   | Ty_real -> pp_string fmt "real"
   | Ty_bool -> pp_string fmt "bool"
@@ -279,16 +280,16 @@ let pp_logic fmt : logic -> unit = function
   | UFLRA -> pp_string fmt "UFLRA"
   | UFNIA -> pp_string fmt "UFNIA"
 
-let equal t1 t2 =
+let equal (type a) (t1 : a t) (t2 : a t) =
   match (t1, t2) with
   | Ty_int, Ty_int | Ty_real, Ty_real | Ty_bool, Ty_bool | Ty_str, Ty_str ->
     true
   | Ty_bitv n1, Ty_bitv n2 | Ty_fp n1, Ty_fp n2 -> n1 = n2
   | _ -> false
 
-let string_of_type (ty : t) : string = Format.asprintf "%a" pp ty
+let string_of_type (ty : _ t) : string = Format.asprintf "%a" pp ty
 
-let size (ty : t) : int =
+let size (type a) (ty : a t) : int =
   match ty with
   | Ty_bitv n | Ty_fp n -> n / 8
   | Ty_int | Ty_bool -> 4
