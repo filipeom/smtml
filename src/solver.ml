@@ -18,12 +18,11 @@
 
 include Solver_intf
 
-let ( let+ ) o f = Option.map f o
-
 module Base (M : Mappings_intf.S) = struct
-  type t = M.solver
-
-  type solver = t
+  type t =
+    { solver : M.solver
+    ; mutable mode : solver_mode
+    }
 
   let solver_time = ref 0.0
 
@@ -31,46 +30,64 @@ module Base (M : Mappings_intf.S) = struct
 
   let pp_statistics _fmt _solver = ()
 
-  let create ?params ?logic () : t = M.Solver.make ?params ?logic ()
+  let create ?params ?logic () =
+    { solver = M.Solver.make ?params ?logic (); mode = Assert_mode }
 
-  let interrupt solver = M.Solver.interrupt solver
+  (* let clone { solver; mode } = { solver = M.Solver.clone solver; mode } *)
 
-  let clone (solver : t) : t = M.Solver.clone solver
+  let reset s =
+    M.Solver.reset s.solver;
+    s.mode <- Start_mode
 
-  let push (solver : t) : unit = M.Solver.push solver
+  let reset_assertions (_solver : t) : unit = ()
 
-  let pop (solver : t) (lvl : int) : unit = M.Solver.pop solver lvl
+  let set_logic _ = assert false
 
-  let reset (solver : t) : unit = M.Solver.reset solver
+  let set_option _ = assert false
 
-  let add (solver : t) (es : Expr.t list) : unit = M.Solver.add solver es
+  let push { solver; _ } _n = M.Solver.push solver
 
-  let get_assertions (_solver : t) : Expr.t list = assert false
+  let pop { solver; _ } n = M.Solver.pop solver n
 
-  let get_statistics (solver : t) : Statistics.t =
-    M.Solver.get_statistics solver
+  let assert_ { solver; _ } htes = M.Solver.add solver htes
 
-  let check (solver : M.solver) (es : Expr.t list) : satisfiability =
+  let add = assert_
+
+  let get_assertions _ = assert false
+
+  let get_statistics { solver; _ } = M.Solver.get_statistics solver
+
+  let check_sat { solver; _ } ~assumptions =
     incr solver_count;
+    solver_count := !solver_count + 1;
     Utils.run_and_time_call
       ~use:(fun time -> solver_time := !solver_time +. time)
-      (fun () -> M.Solver.check solver ~assumptions:es)
+      (fun () -> M.Solver.check solver ~assumptions)
 
-  let get_value (solver : M.solver) (e : Expr.t) : Expr.t =
+  let check s assumptions = check_sat s ~assumptions
+
+  let get_value { solver; _ } e =
     match M.Solver.model solver with
     | Some m -> Expr.make @@ Val (M.value m e)
     | None ->
       Fmt.failwith "get_value: Trying to get a value from an unsat solver"
 
-  let model ?(symbols : Symbol.t list option) (s : M.solver) : Model.t option =
-    let+ model = M.Solver.model s in
-    M.values_of_model ?symbols model
+  let get_model ?symbols { solver; mode } =
+    match mode with
+    | Sat_mode -> (
+      match M.Solver.model solver with
+      | Some m -> M.values_of_model ?symbols m
+      | None -> assert false )
+    | Unsat_mode -> assert false
+    | Assert_mode | Start_mode -> assert false
+
+  let model ?symbols s = Some (get_model ?symbols s)
 end
 
 module Make_batch (Mappings : Mappings_intf.S) = struct
-  include Base (Mappings)
+  module Backend = Base (Mappings)
 
-  type solver = Mappings.solver
+  type solver = Backend.t
 
   type t =
     { solver : solver
@@ -78,50 +95,63 @@ module Make_batch (Mappings : Mappings_intf.S) = struct
     ; stack : Expr.t list Stack.t
     }
 
-  let pp_statistics fmt s = pp_statistics fmt s.solver
+  let solver_time = Backend.solver_time
+
+  let solver_count = Backend.solver_count
+
+  let pp_statistics fmt s = Backend.pp_statistics fmt s.solver
 
   let create ?params ?logic () =
-    { solver = Mappings.Solver.make ?params ?logic ()
+    { solver = Backend.create ?params ?logic ()
     ; top = []
     ; stack = Stack.create ()
     }
 
-  let clone ({ solver; top; stack } : t) : t =
-    { solver; top; stack = Stack.copy stack }
+  (* let clone { solver; top; stack } = *)
+  (*   { solver = Backend.clone solver; top; stack = Stack.copy stack } *)
 
-  let push ({ top; stack; solver } : t) : unit =
-    Mappings.Solver.push solver;
-    Stack.push top stack
-
-  let rec pop (s : t) (lvl : int) : unit =
-    assert (lvl <= Stack.length s.stack);
-    if lvl <= 0 then ()
-    else begin
-      Mappings.Solver.pop s.solver 1;
-      s.top <- Stack.pop s.stack;
-      pop s (lvl - 1)
-    end
-
-  let reset (s : t) =
-    Mappings.Solver.reset s.solver;
+  let reset s =
+    Backend.reset s.solver;
     Stack.clear s.stack;
     s.top <- []
 
-  let add (s : t) (es : Expr.t list) : unit = s.top <- es @ s.top
+  let reset_assertions _ = assert false
 
-  let get_assertions (s : t) : Expr.t list = s.top [@@inline]
+  let set_logic _ = assert false
 
-  let get_statistics (s : t) : Statistics.t = get_statistics s.solver
+  let set_option _ = assert false
 
-  let check (s : t) (es : Expr.t list) : satisfiability =
-    check s.solver (es @ s.top)
+  let push { top; stack; solver } n =
+    Backend.push solver n;
+    Stack.push top stack
 
-  let get_value (solver : t) (e : Expr.t) : Expr.t = get_value solver.solver e
+  let rec pop s n =
+    assert (n <= Stack.length s.stack);
+    if n <= 0 then ()
+    else begin
+      Backend.pop s.solver 1;
+      s.top <- Stack.pop s.stack;
+      pop s (n - 1)
+    end
 
-  let model ?(symbols : Symbol.t list option) (s : t) : Model.t option =
-    model ?symbols s.solver
+  let assert_ s es = s.top <- es @ s.top
 
-  let interrupt { solver; _ } = interrupt solver
+  let add = assert_
+
+  let get_assertions s = s.top [@@inline]
+
+  let get_statistics s = Backend.get_statistics s.solver
+
+  let check_sat s ~assumptions =
+    Backend.check_sat s.solver ~assumptions:(assumptions @ s.top)
+
+  let check s assumptions = check_sat s ~assumptions
+
+  let get_value s hte = Backend.get_value s.solver hte
+
+  let get_model ?symbols s = Backend.get_model ?symbols s.solver
+
+  let model ?symbols s = Some (get_model ?symbols s)
 end
 
 (* TODO: Our base solver can be incrmental itself? *)

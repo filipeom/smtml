@@ -102,8 +102,6 @@ let hash (hte : t) = hte.tag
 
 let make (e : expr) = Hc.hashcons e
 
-let ( @: ) e _ = make e
-
 let view (hte : t) : expr = hte.node [@@inline]
 
 let symbol s = make (Symbol s)

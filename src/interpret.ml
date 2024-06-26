@@ -28,23 +28,23 @@ module Make (Solver : Solver_intf.S) = struct
   let init_state stmts =
     let params = Params.(default () $ (Model, true)) in
     let solver = Solver.create ~params () in
-    Solver.push solver;
+    Solver.push solver 1;
     { stmts; smap = Hashtbl.create 16; solver }
 
   let eval stmt (state : exec_state) : exec_state =
     let { solver; _ } = state in
     match stmt with
     | Assert e ->
-      Solver.add solver [ e ];
+      Solver.assert_ solver [ e ];
       state
     | Check_sat ->
-      ( match Solver.check solver [] with
+      ( match Solver.check_sat solver ~assumptions:[] with
       | `Sat -> Fmt.pr "sat@."
       | `Unsat -> Fmt.pr "unsat@."
       | `Unknown -> Fmt.pr "unknown@." );
       state
     | Push ->
-      Solver.push solver;
+      Solver.push solver 1;
       state
     | Pop n ->
       Solver.pop solver n;
@@ -53,13 +53,13 @@ module Make (Solver : Solver_intf.S) = struct
     | Get_model ->
       assert (
         (function `Sat -> true | `Unsat | `Unknown -> false)
-          (Solver.check solver []) );
-      let model = Solver.model solver in
-      Fmt.pr "%a@." (Fmt.option (Model.pp ~no_values:false)) model;
+          (Solver.check_sat solver ~assumptions:[]) );
+      let model = Solver.get_model solver in
+      Fmt.pr "%a@." (Model.pp ~no_values:false) model;
       state
     | Set_logic logic ->
       let solver = Solver.create ~logic () in
-      Solver.push solver;
+      Solver.push solver 1;
       { state with solver }
 
   let rec loop (state : exec_state) : exec_state =
@@ -73,7 +73,7 @@ module Make (Solver : Solver_intf.S) = struct
       | None -> init_state stmts
       | Some st ->
         Solver.pop st.solver 1;
-        Solver.push st.solver;
+        Solver.push st.solver 1;
         { st with stmts }
     in
     loop st
