@@ -9,6 +9,8 @@
 ### Fixed
 ### Changed
 
+- Make solver mappings only expose a generative functior `Make ()`
+
 ## v0.2.5
 
 ### Fixed

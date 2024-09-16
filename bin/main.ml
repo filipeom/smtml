@@ -21,8 +21,9 @@ open Solver_dispatcher
 
 let get_solver debug solver prover_mode =
   let module Mappings =
-    (val mappings_of_solver solver : Mappings_intf.S_with_fresh)
+    (val mappings_of_solver solver : Mappings_intf.S_with_make)
   in
+  let module Mappings = Mappings.Make () in
   Mappings.set_debug debug;
   match prover_mode with
   | Options.Batch -> (module Solver.Batch (Mappings) : Solver_intf.S)
@@ -75,8 +76,9 @@ let test debug solver prover_mode print_statistics files =
 (* TODO: Remove once dolmen is integrated *)
 let to_smt2 debug solver filename =
   let module Mappings =
-    (val mappings_of_solver solver : Mappings_intf.S_with_fresh)
+    (val mappings_of_solver solver : Mappings_intf.S_with_make)
   in
+  let module Mappings = Mappings.Make () in
   Mappings.set_debug debug;
   let ast = Parse.from_file filename in
   let assertions =

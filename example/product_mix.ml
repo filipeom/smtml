@@ -1,5 +1,5 @@
 open Smtml
-module Z3 = Optimizer.Z3
+module Z3 = Optimizer.Make (Z3_mappings.Make ())
 
 let read_int () = Scanf.scanf " %d" (fun x -> x)
 

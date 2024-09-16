@@ -30,6 +30,4 @@ module type Intf = sig
   module type S = S
 
   module Make (_ : Mappings_intf.S) : S
-
-  module Z3 : S
 end

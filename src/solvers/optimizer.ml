@@ -68,5 +68,3 @@ module Make (M : Mappings_intf.S) = struct
 
   let get_statistics (opt : t) : Statistics.t = M.Optimizer.get_statistics opt
 end
-
-module Z3 = Make (Z3_mappings)

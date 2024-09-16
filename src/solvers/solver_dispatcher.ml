@@ -5,7 +5,7 @@ type solver_type =
   | Colibri2_solver
   | Cvc5_solver
 
-let mappings_of_solver : solver_type -> (module Mappings_intf.S_with_fresh) =
+let mappings_of_solver : solver_type -> (module Mappings_intf.S_with_make) =
   function
   | Z3_solver -> (module Z3_mappings)
   | Bitwuzla_solver -> (module Bitwuzla_mappings)
@@ -33,7 +33,7 @@ let available_solvers : solver_type list =
     [ Z3_solver; Bitwuzla_solver; Colibri2_solver; Cvc5_solver ]
 
 (** Returns first available solver or errors when none exist *)
-let solver : ((module Mappings_intf.S_with_fresh), [> `Msg of string ]) result =
+let solver : ((module Mappings_intf.S_with_make), [> `Msg of string ]) result =
   match available_solvers with
   | [] -> Error (`Msg "no available solver")
   | solver :: _ -> Ok (mappings_of_solver solver)

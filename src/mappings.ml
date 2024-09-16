@@ -18,7 +18,7 @@
 
 include Mappings_intf
 
-module Make (M_with_make : M_with_make) : S_with_fresh = struct
+module Make (M_with_make : M_with_make) : S_with_make = struct
   module Make_ (M : M) : S = struct
     open Ty
     module Smap = Map.Make (Symbol)
@@ -790,11 +790,7 @@ module Make (M_with_make : M_with_make) : S_with_fresh = struct
     end
   end
 
-  module Fresh = struct
-    module Make () = Make_ (M_with_make.Make ())
-  end
+  module Make () = Make_ (M_with_make.Make ())
 
   let is_available = M_with_make.is_available
-
-  include Make_ (M_with_make)
 end
