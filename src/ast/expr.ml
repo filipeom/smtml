@@ -293,115 +293,126 @@ let let_in vars expr = make (Binder (Let_in, vars, expr))
 let unop' ty op hte = make (Unop (ty, op, hte)) [@@inline]
 
 let unop ty op hte =
-  match (op, view hte) with
-  | Ty.(Regexp_loop _ | Regexp_star), _ -> unop' ty op hte
-  | _, Val v -> value (Eval.unop ty op v)
-  | Not, Unop (_, Not, hte') -> hte'
-  | Neg, Unop (_, Neg, hte') -> hte'
-  | Trim, Cvtop (Ty_real, ToString, _) -> hte
-  | Head, List (hd :: _) -> hd
-  | Tail, List (_ :: tl) -> make (List tl)
-  | Reverse, List es -> make (List (List.rev es))
-  | Length, List es -> value (Int (List.length es))
-  | _ -> unop' ty op hte
+  if not Config.simplify then unop' ty op hte
+  else
+    match (op, view hte) with
+    | Ty.(Regexp_loop _ | Regexp_star), _ -> unop' ty op hte
+    | _, Val v -> value (Eval.unop ty op v)
+    | Not, Unop (_, Not, hte') -> hte'
+    | Neg, Unop (_, Neg, hte') -> hte'
+    | Trim, Cvtop (Ty_real, ToString, _) -> hte
+    | Head, List (hd :: _) -> hd
+    | Tail, List (_ :: tl) -> make (List tl)
+    | Reverse, List es -> make (List (List.rev es))
+    | Length, List es -> value (Int (List.length es))
+    | _ -> unop' ty op hte
 
 let binop' ty op hte1 hte2 = make (Binop (ty, op, hte1, hte2)) [@@inline]
 
 let rec binop ty op hte1 hte2 =
-  match (op, view hte1, view hte2) with
-  | Ty.(String_in_re | Regexp_range), _, _ -> binop' ty op hte1 hte2
-  | op, Val v1, Val v2 -> value (Eval.binop ty op v1 v2)
-  | Sub, Ptr { base = b1; offset = os1 }, Ptr { base = b2; offset = os2 } ->
-    if Int32.equal b1 b2 then binop ty Sub os1 os2 else binop' ty op hte1 hte2
-  | Add, Ptr { base; offset }, _ ->
-    ptr base (binop (Ty_bitv 32) Add offset hte2)
-  | Sub, Ptr { base; offset }, _ ->
-    ptr base (binop (Ty_bitv 32) Sub offset hte2)
-  | Rem, Ptr { base; offset }, _ ->
-    let rhs = value (Num (I32 base)) in
-    let addr = binop (Ty_bitv 32) Add rhs offset in
-    binop ty Rem addr hte2
-  | Add, _, Ptr { base; offset } ->
-    ptr base (binop (Ty_bitv 32) Add offset hte1)
-  | Sub, _, Ptr { base; offset } ->
-    binop ty Sub hte1 (binop (Ty_bitv 32) Add (value (Num (I32 base))) offset)
-  | (Add | Or), Val (Num (I32 0l)), _ -> hte2
-  | (And | Div | DivU | Mul | Rem | RemU), Val (Num (I32 0l)), _ -> hte1
-  | (Add | Or), _, Val (Num (I32 0l)) -> hte1
-  | (And | Mul), _, Val (Num (I32 0l)) -> hte2
-  | Add, Binop (ty, Add, x, { node = Val v1; _ }), Val v2 ->
-    let v = value (Eval.binop ty Add v1 v2) in
-    binop' ty Add x v
-  | Sub, Binop (ty, Sub, x, { node = Val v1; _ }), Val v2 ->
-    let v = value (Eval.binop ty Add v1 v2) in
-    binop' ty Sub x v
-  | Mul, Binop (ty, Mul, x, { node = Val v1; _ }), Val v2 ->
-    let v = value (Eval.binop ty Mul v1 v2) in
-    binop' ty Mul x v
-  | Add, Val v1, Binop (ty, Add, x, { node = Val v2; _ }) ->
-    let v = value (Eval.binop ty Add v1 v2) in
-    binop' ty Add v x
-  | Mul, Val v1, Binop (ty, Mul, x, { node = Val v2; _ }) ->
-    let v = value (Eval.binop ty Mul v1 v2) in
-    binop' ty Mul v x
-  | At, List es, Val (Int n) -> List.nth es n
-  | List_cons, _, List es -> make (List (hte1 :: es))
-  | List_append, List _, (List [] | Val (List [])) -> hte1
-  | List_append, (List [] | Val (List [])), List _ -> hte2
-  | List_append, List l0, Val (List l1) -> make (List (l0 @ List.map value l1))
-  | List_append, Val (List l0), List l1 -> make (List (List.map value l0 @ l1))
-  | List_append, List l0, List l1 -> make (List (l0 @ l1))
-  | _ -> binop' ty op hte1 hte2
+  if not Config.simplify then binop' ty op hte1 hte2
+  else
+    match (op, view hte1, view hte2) with
+    | Ty.(String_in_re | Regexp_range), _, _ -> binop' ty op hte1 hte2
+    | op, Val v1, Val v2 -> value (Eval.binop ty op v1 v2)
+    | Sub, Ptr { base = b1; offset = os1 }, Ptr { base = b2; offset = os2 } ->
+      if Int32.equal b1 b2 then binop ty Sub os1 os2 else binop' ty op hte1 hte2
+    | Add, Ptr { base; offset }, _ ->
+      ptr base (binop (Ty_bitv 32) Add offset hte2)
+    | Sub, Ptr { base; offset }, _ ->
+      ptr base (binop (Ty_bitv 32) Sub offset hte2)
+    | Rem, Ptr { base; offset }, _ ->
+      let rhs = value (Num (I32 base)) in
+      let addr = binop (Ty_bitv 32) Add rhs offset in
+      binop ty Rem addr hte2
+    | Add, _, Ptr { base; offset } ->
+      ptr base (binop (Ty_bitv 32) Add offset hte1)
+    | Sub, _, Ptr { base; offset } ->
+      binop ty Sub hte1 (binop (Ty_bitv 32) Add (value (Num (I32 base))) offset)
+    | (Add | Or), Val (Num (I32 0l)), _ -> hte2
+    | (And | Div | DivU | Mul | Rem | RemU), Val (Num (I32 0l)), _ -> hte1
+    | (Add | Or), _, Val (Num (I32 0l)) -> hte1
+    | (And | Mul), _, Val (Num (I32 0l)) -> hte2
+    | Add, Binop (ty, Add, x, { node = Val v1; _ }), Val v2 ->
+      let v = value (Eval.binop ty Add v1 v2) in
+      binop' ty Add x v
+    | Sub, Binop (ty, Sub, x, { node = Val v1; _ }), Val v2 ->
+      let v = value (Eval.binop ty Add v1 v2) in
+      binop' ty Sub x v
+    | Mul, Binop (ty, Mul, x, { node = Val v1; _ }), Val v2 ->
+      let v = value (Eval.binop ty Mul v1 v2) in
+      binop' ty Mul x v
+    | Add, Val v1, Binop (ty, Add, x, { node = Val v2; _ }) ->
+      let v = value (Eval.binop ty Add v1 v2) in
+      binop' ty Add v x
+    | Mul, Val v1, Binop (ty, Mul, x, { node = Val v2; _ }) ->
+      let v = value (Eval.binop ty Mul v1 v2) in
+      binop' ty Mul v x
+    | At, List es, Val (Int n) -> List.nth es n
+    | List_cons, _, List es -> make (List (hte1 :: es))
+    | List_append, List _, (List [] | Val (List [])) -> hte1
+    | List_append, (List [] | Val (List [])), List _ -> hte2
+    | List_append, List l0, Val (List l1) -> make (List (l0 @ List.map value l1))
+    | List_append, Val (List l0), List l1 -> make (List (List.map value l0 @ l1))
+    | List_append, List l0, List l1 -> make (List (l0 @ l1))
+    | _ -> binop' ty op hte1 hte2
 
 let triop' ty op e1 e2 e3 = make (Triop (ty, op, e1, e2, e3)) [@@inline]
 
 let triop ty op e1 e2 e3 =
-  match (op, view e1, view e2, view e3) with
-  | Ty.Ite, Val True, _, _ -> e2
-  | Ite, Val False, _, _ -> e3
-  | op, Val v1, Val v2, Val v3 -> value (Eval.triop ty op v1 v2 v3)
-  | _ -> triop' ty op e1 e2 e3
+  if not Config.simplify then triop' ty op e1 e2 e3
+  else
+    match (op, view e1, view e2, view e3) with
+    | Ty.Ite, Val True, _, _ -> e2
+    | Ite, Val False, _, _ -> e3
+    | op, Val v1, Val v2, Val v3 -> value (Eval.triop ty op v1 v2 v3)
+    | _ -> triop' ty op e1 e2 e3
 
 let relop' ty op hte1 hte2 = make (Relop (ty, op, hte1, hte2)) [@@inline]
 
 let rec relop ty op hte1 hte2 =
-  match (op, view hte1, view hte2) with
-  | op, Val v1, Val v2 -> value (if Eval.relop ty op v1 v2 then True else False)
-  | Ty.Ne, Val (Real v), _ | Ne, _, Val (Real v) ->
-    if Float.is_nan v || Float.is_infinite v then value True
-    else relop' ty op hte1 hte2
-  | _, Val (Real v), _ | _, _, Val (Real v) ->
-    if Float.is_nan v || Float.is_infinite v then value False
-    else relop' ty op hte1 hte2
-  | Eq, _, Val Nothing | Eq, Val Nothing, _ -> value False
-  | Ne, _, Val Nothing | Ne, Val Nothing, _ -> value True
-  | Eq, _, Val (App (`Op "symbol", [ Str _ ]))
-  | Eq, Val (App (`Op "symbol", [ Str _ ])), _ ->
-    value False
-  | Ne, _, Val (App (`Op "symbol", [ Str _ ]))
-  | Ne, Val (App (`Op "symbol", [ Str _ ])), _ ->
-    value True
-  | Eq, Ptr { base = b1; offset = os1 }, Ptr { base = b2; offset = os2 } ->
-    if Int32.equal b1 b2 then relop Ty_bool Eq os1 os2 else value False
-  | Ne, Ptr { base = b1; offset = os1 }, Ptr { base = b2; offset = os2 } ->
-    if Int32.equal b1 b2 then relop Ty_bool Ne os1 os2 else value True
-  | ( (LtU | LeU | GtU | GeU)
-    , Ptr { base = b1; offset = os1 }
-    , Ptr { base = b2; offset = os2 } ) ->
-    if Int32.equal b1 b2 then relop ty op os1 os2
-    else
-      value
-        (if Eval.relop ty op (Num (I32 b1)) (Num (I32 b2)) then True else False)
-  | op, Val (Num _ as n), Ptr { base; offset = { node = Val (Num _ as o); _ } }
-    ->
-    let base = Eval.binop (Ty_bitv 32) Add (Num (I32 base)) o in
-    value (if Eval.relop ty op n base then True else False)
-  | op, Ptr { base; offset = { node = Val (Num _ as o); _ } }, Val (Num _ as n)
-    ->
-    let base = Eval.binop (Ty_bitv 32) Add (Num (I32 base)) o in
-    value (if Eval.relop ty op base n then True else False)
-  | op, List l1, List l2 -> relop_list op l1 l2
-  | _, _, _ -> relop' ty op hte1 hte2
+  if not Config.simplify then relop' ty op hte1 hte2
+  else
+    match (op, view hte1, view hte2) with
+    | op, Val v1, Val v2 ->
+      value (if Eval.relop ty op v1 v2 then True else False)
+    | Ty.Ne, Val (Real v), _ | Ne, _, Val (Real v) ->
+      if Float.is_nan v || Float.is_infinite v then value True
+      else relop' ty op hte1 hte2
+    | _, Val (Real v), _ | _, _, Val (Real v) ->
+      if Float.is_nan v || Float.is_infinite v then value False
+      else relop' ty op hte1 hte2
+    | Eq, _, Val Nothing | Eq, Val Nothing, _ -> value False
+    | Ne, _, Val Nothing | Ne, Val Nothing, _ -> value True
+    | Eq, _, Val (App (`Op "symbol", [ Str _ ]))
+    | Eq, Val (App (`Op "symbol", [ Str _ ])), _ ->
+      value False
+    | Ne, _, Val (App (`Op "symbol", [ Str _ ]))
+    | Ne, Val (App (`Op "symbol", [ Str _ ])), _ ->
+      value True
+    | Eq, Ptr { base = b1; offset = os1 }, Ptr { base = b2; offset = os2 } ->
+      if Int32.equal b1 b2 then relop Ty_bool Eq os1 os2 else value False
+    | Ne, Ptr { base = b1; offset = os1 }, Ptr { base = b2; offset = os2 } ->
+      if Int32.equal b1 b2 then relop Ty_bool Ne os1 os2 else value True
+    | ( (LtU | LeU | GtU | GeU)
+      , Ptr { base = b1; offset = os1 }
+      , Ptr { base = b2; offset = os2 } ) ->
+      if Int32.equal b1 b2 then relop ty op os1 os2
+      else
+        value
+          ( if Eval.relop ty op (Num (I32 b1)) (Num (I32 b2)) then True
+            else False )
+    | ( op
+      , Val (Num _ as n)
+      , Ptr { base; offset = { node = Val (Num _ as o); _ } } ) ->
+      let base = Eval.binop (Ty_bitv 32) Add (Num (I32 base)) o in
+      value (if Eval.relop ty op n base then True else False)
+    | op, Ptr { base; offset = { node = Val (Num _ as o); _ } }, Val (Num _ as n)
+      ->
+      let base = Eval.binop (Ty_bitv 32) Add (Num (I32 base)) o in
+      value (if Eval.relop ty op base n then True else False)
+    | op, List l1, List l2 -> relop_list op l1 l2
+    | _, _, _ -> relop' ty op hte1 hte2
 
 and relop_list op l1 l2 =
   match (op, l1, l2) with
@@ -424,11 +435,13 @@ and relop_list op l1 l2 =
 let cvtop' ty op hte = make (Cvtop (ty, op, hte)) [@@inline]
 
 let cvtop ty op hte =
-  match (op, view hte) with
-  | Ty.String_to_re, _ -> cvtop' ty op hte
-  | _, Val v -> value (Eval.cvtop ty op v)
-  | String_to_float, Cvtop (Ty_real, ToString, real) -> real
-  | _ -> cvtop' ty op hte
+  if not Config.simplify then cvtop' ty op hte
+  else
+    match (op, view hte) with
+    | Ty.String_to_re, _ -> cvtop' ty op hte
+    | _, Val v -> value (Eval.cvtop ty op v)
+    | String_to_float, Cvtop (Ty_real, ToString, real) -> real
+    | _ -> cvtop' ty op hte
 
 let naryop' ty op es = make (Naryop (ty, op, es)) [@@inline]
 
@@ -460,45 +473,51 @@ let extract' (hte : t) ~(high : int) ~(low : int) : t =
 [@@inline]
 
 let extract (hte : t) ~(high : int) ~(low : int) : t =
-  match view hte with
-  | Val (Num (I64 x)) ->
-    let x' = nland64 (Int64.shift_right x (low * 8)) (high - low) in
-    value (Num (I64 x'))
-  | _ -> if high - low = Ty.size (ty hte) then hte else extract' hte ~high ~low
+  if not Config.simplify then extract' hte ~high ~low
+  else
+    match view hte with
+    | Val (Num (I64 x)) ->
+      let x' = nland64 (Int64.shift_right x (low * 8)) (high - low) in
+      value (Num (I64 x'))
+    | _ ->
+      if high - low = Ty.size (ty hte) then hte else extract' hte ~high ~low
 
 let concat' (msb : t) (lsb : t) : t = make (Concat (msb, lsb)) [@@inline]
 
 let concat (msb : t) (lsb : t) : t =
-  match (view msb, view lsb) with
-  | ( Extract ({ node = Val (Num (I64 x2)); _ }, h2, l2)
-    , Extract ({ node = Val (Num (I64 x1)); _ }, h1, l1) ) ->
-    let d1 = h1 - l1 in
-    let d2 = h2 - l2 in
-    let x1' = nland64 (Int64.shift_right x1 (l1 * 8)) d1 in
-    let x2' = nland64 (Int64.shift_right x2 (l2 * 8)) d2 in
-    let x = Int64.(logor (shift_left x2' (d1 * 8)) x1') in
-    extract' (value (Num (I64 x))) ~high:(d1 + d2) ~low:0
-  | ( Extract ({ node = Val (Num (I32 x2)); _ }, h2, l2)
-    , Extract ({ node = Val (Num (I32 x1)); _ }, h1, l1) ) ->
-    let d1 = h1 - l1 in
-    let d2 = h2 - l2 in
-    let x1' = nland32 (Int32.shift_right x1 (l1 * 8)) d1 in
-    let x2' = nland32 (Int32.shift_right x2 (l2 * 8)) d2 in
-    let x = Int32.(logor (shift_left x2' (d1 * 8)) x1') in
-    extract' (value (Num (I32 x))) ~high:(d1 + d2) ~low:0
-  | Extract (s1, h, m1), Extract (s2, m2, l) when equal s1 s2 && m1 = m2 ->
-    extract' s1 ~high:h ~low:l
-  | ( Extract ({ node = Val (Num (I64 x2)); _ }, h2, l2)
-    , Concat
-        ({ node = Extract ({ node = Val (Num (I64 x1)); _ }, h1, l1); _ }, se) )
-    when not (is_num se) ->
-    let d1 = h1 - l1 in
-    let d2 = h2 - l2 in
-    let x1' = nland64 (Int64.shift_right x1 (l1 * 8)) d1 in
-    let x2' = nland64 (Int64.shift_right x2 (l2 * 8)) d2 in
-    let x = Int64.(logor (shift_left x2' (d1 * 8)) x1') in
-    concat' (extract' (value (Num (I64 x))) ~high:(d1 + d2) ~low:0) se
-  | _ -> concat' msb lsb
+  if not Config.simplify then concat' msb lsb
+  else
+    match (view msb, view lsb) with
+    | ( Extract ({ node = Val (Num (I64 x2)); _ }, h2, l2)
+      , Extract ({ node = Val (Num (I64 x1)); _ }, h1, l1) ) ->
+      let d1 = h1 - l1 in
+      let d2 = h2 - l2 in
+      let x1' = nland64 (Int64.shift_right x1 (l1 * 8)) d1 in
+      let x2' = nland64 (Int64.shift_right x2 (l2 * 8)) d2 in
+      let x = Int64.(logor (shift_left x2' (d1 * 8)) x1') in
+      extract' (value (Num (I64 x))) ~high:(d1 + d2) ~low:0
+    | ( Extract ({ node = Val (Num (I32 x2)); _ }, h2, l2)
+      , Extract ({ node = Val (Num (I32 x1)); _ }, h1, l1) ) ->
+      let d1 = h1 - l1 in
+      let d2 = h2 - l2 in
+      let x1' = nland32 (Int32.shift_right x1 (l1 * 8)) d1 in
+      let x2' = nland32 (Int32.shift_right x2 (l2 * 8)) d2 in
+      let x = Int32.(logor (shift_left x2' (d1 * 8)) x1') in
+      extract' (value (Num (I32 x))) ~high:(d1 + d2) ~low:0
+    | Extract (s1, h, m1), Extract (s2, m2, l) when equal s1 s2 && m1 = m2 ->
+      extract' s1 ~high:h ~low:l
+    | ( Extract ({ node = Val (Num (I64 x2)); _ }, h2, l2)
+      , Concat
+          ({ node = Extract ({ node = Val (Num (I64 x1)); _ }, h1, l1); _ }, se)
+      )
+      when not (is_num se) ->
+      let d1 = h1 - l1 in
+      let d2 = h2 - l2 in
+      let x1' = nland64 (Int64.shift_right x1 (l1 * 8)) d1 in
+      let x2' = nland64 (Int64.shift_right x2 (l2 * 8)) d2 in
+      let x = Int64.(logor (shift_left x2' (d1 * 8)) x1') in
+      concat' (extract' (value (Num (I64 x))) ~high:(d1 + d2) ~low:0) se
+    | _ -> concat' msb lsb
 
 let rec simplify_expr ?(rm_extract = true) (hte : t) : t =
   match view hte with
@@ -539,11 +558,13 @@ let rec simplify_expr ?(rm_extract = true) (hte : t) : t =
     hte
 
 let simplify (hte : t) : t =
-  let rec loop x =
-    let simpl_x = simplify_expr x in
-    if equal x simpl_x then simpl_x else loop simpl_x
-  in
-  loop hte
+  if not Config.simplify then hte
+  else
+    let rec loop x =
+      let simpl_x = simplify_expr x in
+      if equal x simpl_x then simpl_x else loop simpl_x
+    in
+    loop hte
 
 module Bool = struct
   open Ty

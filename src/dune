@@ -16,6 +16,7 @@
   ;axioms
   cache
   cache_intf
+  config
   compile
   constructors_intf
   colibri2_mappings
