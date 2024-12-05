@@ -3,6 +3,8 @@ open Ty
 open Expr
 open Value
 
+let ( = ) = Expr.equal
+
 (* bool *)
 let () =
   let t = value True in

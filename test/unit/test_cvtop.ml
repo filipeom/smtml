@@ -3,6 +3,8 @@ open Ty
 open Expr
 open Value
 
+let ( = ) = Expr.equal
+
 let int i = value (Int i)
 
 let str s = value (Str s)

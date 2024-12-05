@@ -1,1 +1,1 @@
-let simplify = false
+let simplify = true

@@ -4,6 +4,8 @@ module I8 = Bitv.I8
 module I32 = Bitv.I32
 module I64 = Bitv.I64
 
+let ( = ) = Expr.equal
+
 (* Test concrete simplification *)
 let () =
   assert (

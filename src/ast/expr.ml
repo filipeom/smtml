@@ -33,70 +33,65 @@ let equal_binder a b =
   | Forall, Forall | Exists, Exists | Let_in, Let_in -> true
   | (Forall | Exists | Let_in), _ -> false
 
+let rec equal_expr (e1 : expr) (e2 : expr) : bool =
+  let open Hc in
+  match (e1, e2) with
+  | Val v1, Val v2 -> Value.equal v1 v2
+  | Ptr { base = b1; offset = o1 }, Ptr { base = b2; offset = o2 } ->
+    Int32.equal b1 b2 && equal_expr o1.node o2.node
+  | Symbol s1, Symbol s2 -> Symbol.equal s1 s2
+  | List l1, List l2 -> list_eq l1 l2
+  | App (s1, l1), App (s2, l2) -> Symbol.equal s1 s2 && list_eq l1 l2
+  | Unop (t1, op1, e1), Unop (t2, op2, e2) ->
+    Ty.equal t1 t2 && Ty.unop_equal op1 op2 && equal_expr e1.node e2.node
+  | Binop (t1, op1, e1, e3), Binop (t2, op2, e2, e4) ->
+    Ty.equal t1 t2 && Ty.binop_equal op1 op2 && equal_expr e1.node e2.node
+    && equal_expr e3.node e4.node
+  | Relop (t1, op1, e1, e3), Relop (t2, op2, e2, e4) ->
+    Ty.equal t1 t2 && Ty.relop_equal op1 op2 && equal_expr e1.node e2.node
+    && equal_expr e3.node e4.node
+  | Triop (t1, op1, e1, e3, e5), Triop (t2, op2, e2, e4, e6) ->
+    Ty.equal t1 t2 && Ty.triop_equal op1 op2 && equal_expr e1.node e2.node
+    && equal_expr e3.node e4.node && equal_expr e5.node e6.node
+  | Cvtop (t1, op1, e1), Cvtop (t2, op2, e2) ->
+    Ty.equal t1 t2 && Ty.cvtop_equal op1 op2 && equal_expr e1.node e2.node
+  | Naryop (t1, op1, l1), Naryop (t2, op2, l2) ->
+    Ty.equal t1 t2 && Ty.naryop_equal op1 op2 && list_eq l1 l2
+  | Extract (e1, h1, l1), Extract (e2, h2, l2) ->
+    equal_expr e1.node e2.node && h1 = h2 && l1 = l2
+  | Concat (e1, e3), Concat (e2, e4) ->
+    equal_expr e1.node e2.node && equal_expr e3.node e4.node
+  | Binder (binder1, vars1, e1), Binder (binder2, vars2, e2) ->
+    equal_binder binder1 binder2
+    && list_eq vars1 vars2 && equal_expr e1.node e2.node
+  | ( ( Val _ | Ptr _ | Symbol _ | List _ | App _ | Unop _ | Binop _ | Triop _
+      | Relop _ | Cvtop _ | Naryop _ | Extract _ | Concat _ | Binder _ )
+    , _ ) ->
+    false
+
+and list_eq (l1 : 'a list) (l2 : 'a list) : bool =
+  if List.compare_lengths l1 l2 = 0 then
+    List.for_all2
+      (fun hte1 hte2 ->
+        let e1 = hte1.Hc.node in
+        let e2 = hte2.Hc.node in
+        equal_expr e1 e2 )
+      l1 l2
+  else false
+
 module Expr = struct
   type t = expr
 
-  let list_eq (l1 : 'a list) (l2 : 'a list) : bool =
-    if List.compare_lengths l1 l2 = 0 then List.for_all2 phys_equal l1 l2
-    else false
+  let equal (e1 : expr) (e2 : expr) : bool = equal_expr e1 e2
 
-  let equal (e1 : expr) (e2 : expr) : bool =
-    match (e1, e2) with
-    | Val v1, Val v2 -> Value.equal v1 v2
-    | Ptr { base = b1; offset = o1 }, Ptr { base = b2; offset = o2 } ->
-      Int32.equal b1 b2 && phys_equal o1 o2
-    | Symbol s1, Symbol s2 -> Symbol.equal s1 s2
-    | List l1, List l2 -> list_eq l1 l2
-    | App (s1, l1), App (s2, l2) -> Symbol.equal s1 s2 && list_eq l1 l2
-    | Unop (t1, op1, e1), Unop (t2, op2, e2) ->
-      Ty.equal t1 t2 && Ty.unop_equal op1 op2 && phys_equal e1 e2
-    | Binop (t1, op1, e1, e3), Binop (t2, op2, e2, e4) ->
-      Ty.equal t1 t2 && Ty.binop_equal op1 op2 && phys_equal e1 e2
-      && phys_equal e3 e4
-    | Relop (t1, op1, e1, e3), Relop (t2, op2, e2, e4) ->
-      Ty.equal t1 t2 && Ty.relop_equal op1 op2 && phys_equal e1 e2
-      && phys_equal e3 e4
-    | Triop (t1, op1, e1, e3, e5), Triop (t2, op2, e2, e4, e6) ->
-      Ty.equal t1 t2 && Ty.triop_equal op1 op2 && phys_equal e1 e2
-      && phys_equal e3 e4 && phys_equal e5 e6
-    | Cvtop (t1, op1, e1), Cvtop (t2, op2, e2) ->
-      Ty.equal t1 t2 && Ty.cvtop_equal op1 op2 && phys_equal e1 e2
-    | Naryop (t1, op1, l1), Naryop (t2, op2, l2) ->
-      Ty.equal t1 t2 && Ty.naryop_equal op1 op2 && list_eq l1 l2
-    | Extract (e1, h1, l1), Extract (e2, h2, l2) ->
-      phys_equal e1 e2 && h1 = h2 && l1 = l2
-    | Concat (e1, e3), Concat (e2, e4) -> phys_equal e1 e2 && phys_equal e3 e4
-    | Binder (binder1, vars1, e1), Binder (binder2, vars2, e2) ->
-      equal_binder binder1 binder2 && list_eq vars1 vars2 && phys_equal e1 e2
-    | ( ( Val _ | Ptr _ | Symbol _ | List _ | App _ | Unop _ | Binop _ | Triop _
-        | Relop _ | Cvtop _ | Naryop _ | Extract _ | Concat _ | Binder _ )
-      , _ ) ->
-      false
-
-  let hash (e : expr) : int =
-    let h x = Hashtbl.hash x in
-    match e with
-    | Val v -> h v
-    | Ptr { base; offset } -> h (base, offset.tag)
-    | Symbol s -> h s
-    | List v -> h v
-    | App (x, es) -> h (x, es)
-    | Unop (ty, op, e) -> h (ty, op, e.tag)
-    | Cvtop (ty, op, e) -> h (ty, op, e.tag)
-    | Binop (ty, op, e1, e2) -> h (ty, op, e1.tag, e2.tag)
-    | Relop (ty, op, e1, e2) -> h (ty, op, e1.tag, e2.tag)
-    | Triop (ty, op, e1, e2, e3) -> h (ty, op, e1.tag, e2.tag, e3.tag)
-    | Naryop (ty, op, es) -> h (ty, op, es)
-    | Extract (e, hi, lo) -> h (e.tag, hi, lo)
-    | Concat (e1, e2) -> h (e1.tag, e2.tag)
-    | Binder (b, vars, e) -> h (b, vars, e.tag)
+  let hash (e : expr) : int = Hashtbl.hash e
 end
 
-module Hc = Hc.Make [@inlined hint] (Expr)
+module Hc = Hc.Fake [@inlined hint] (Expr)
 
-let equal (hte1 : t) (hte2 : t) = Int.equal hte1.tag hte2.tag [@@inline]
+let equal (hte1 : t) (hte2 : t) = equal_expr hte1.node hte2.node
 
-let hash (hte : t) = hte.tag [@@inline]
+let hash (hte : t) = Expr.hash hte.node
 
 module Key = struct
   type nonrec t = t
@@ -110,7 +105,7 @@ let make (e : expr) = Hc.hashcons e [@@inline]
 
 let view (hte : t) : expr = hte.node [@@inline]
 
-let compare (hte1 : t) (hte2 : t) = compare hte1.tag hte2.tag [@@inline]
+let compare (_hte1 : t) (_hte2 : t) = assert false
 
 let symbol s = make (Symbol s)
 
