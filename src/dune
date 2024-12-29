@@ -71,6 +71,7 @@
   rusage
   scfg
   smtml.prelude
+  sexplib
   yojson
   zarith
   (select

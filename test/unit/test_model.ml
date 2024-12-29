@@ -14,7 +14,11 @@ let () =
     tbl
   in
   let model_to_json = Model.to_json model in
-  Format.printf "%a@." (Yojson.pretty_print ~std:true) model_to_json
+  Fmt.pr "%a@." (Yojson.pretty_print ~std:true) model_to_json;
+  let model_to_scfg = Model.to_scfg ~no_value:false model in
+  Fmt.pr "%a@." Scfg.Pp.config model_to_scfg;
+  let model_to_sexp = Model.to_sexp model in
+  Fmt.pr "%a@." (Sexplib.Sexp.pp_hum_indent 2) model_to_sexp
 
 (* Parsing *)
 

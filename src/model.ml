@@ -96,12 +96,26 @@ let to_scfg_string ~no_value model =
   let model = to_scfg ~no_value model in
   Fmt.str "%a" Scfg.Pp.config model
 
-let to_smtlib _model = assert false
+let to_sexp model =
+  let open Sexplib.Sexp in
+  let assignments =
+    Hashtbl.fold
+      (fun k v acc ->
+        let t = Symbol.type_of k in
+        List
+          [ Atom (Symbol.to_string k)
+          ; Atom (Ty.string_of_type t)
+          ; Atom (Value.to_string v)
+          ]
+        :: acc )
+      model []
+  in
+  List [ Atom "model"; List assignments ]
 
 (** {b Example}: TODO *)
-let to_smtlib_string model =
-  let _model = to_smtlib model in
-  assert false
+let to_sexp_string model =
+  let model = to_sexp model in
+  Fmt.str "%a" (Sexplib.Sexp.pp_hum_indent 2) model
 
 module Parse = struct
   module Json = struct
@@ -178,7 +192,7 @@ module Parse = struct
       from_scfg model
   end
 
-  module Smtlib = struct
+  module Sexp = struct
     let from_string _s = assert false
 
     let from_channel _chan = assert false

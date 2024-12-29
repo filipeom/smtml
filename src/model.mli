@@ -26,10 +26,9 @@ val to_scfg : no_value:bool -> t -> Scfg.Types.config
 
 val to_scfg_string : no_value:bool -> t -> string
 
-(* TODO:
-   val to_smtlib : t -> ?
-*)
-val to_smtlib_string : t -> string
+val to_sexp : t -> Sexplib.Sexp.t
+
+val to_sexp_string : t -> string
 
 module Parse : sig
   module Json : sig
@@ -48,14 +47,11 @@ module Parse : sig
     val from_file : Fpath.t -> (t, string) Result.t
   end
 
-  module Smtlib : sig
+  module Sexp : sig
     val from_string : string -> (t, string) Result.t
-    [@@alert unsafe "not implemented"]
 
     val from_channel : in_channel -> (t, string) Result.t
-    [@@alert unsafe "not implemented"]
 
     val from_file : Fpath.t -> (t, string) Result.t
-    [@@alert unsafe "not implemented"]
   end
 end
