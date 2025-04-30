@@ -283,13 +283,7 @@ module Fresh = struct
           Colibri2_core.Value.value Colibri2_theories_LRA.RealValue.key v
         with
         | Some a when A.is_integer a ->
-          Some
-            (Value.Num
-               ( match n with
-               | 8 -> I8 (A.to_int a)
-               | 32 -> I32 (Int32.of_int (A.to_int a))
-               | 64 -> I64 (Int64.of_int (A.to_int a))
-               | _ -> assert false ) )
+          Some (Value.Bitv (Bitvector.make (A.to_z a) n))
         | _ -> assert false )
       | Ty_fp n -> (
         match Colibri2_core.Value.value Colibri2_theories_fp.Fp_value.key v with
