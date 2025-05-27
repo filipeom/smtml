@@ -1,3 +1,9 @@
-(tests
- (names test_bitvector test_eval test_expr test_model test_statistics)
+(library
+ (name test_unit)
+ (modules test_bitvector test_eval test_expr test_model test_statistics)
  (libraries smtml smtml_test yojson ounit2))
+
+(test
+ (name main)
+ (modules main)
+ (libraries test_unit alcotest))

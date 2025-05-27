@@ -1,6 +1,8 @@
 open OUnit2
 open Smtml
 
+let check = assert_equal
+
 module Make (M : Mappings_intf.S_with_fresh) = struct
   open Smtml_test.Test_harness
   module Cached = Solver.Cached (M)
