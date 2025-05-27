@@ -26,6 +26,12 @@ let merge s1 s2 =
       | None, None -> None )
     s1 s2
 
+let equal_entry a b =
+  match (a, b) with
+  | `Int a, `Int b -> a = b
+  | `Float a, `Float b -> Float.equal a b
+  | (`Int _ | `Float _), _ -> false
+
 let pp_entry fmt = function
   | `Int i -> Fmt.int fmt i
   | `Float f -> Fmt.float fmt f

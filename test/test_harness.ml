@@ -6,19 +6,14 @@ let pp_sat fmt = function
   | `Unsat -> Fmt.string fmt "unsat"
   | `Unknown -> Fmt.string fmt "unknown"
 
-let assert_sat ?f result =
-  let fail_msg =
-    Fmt.str "%a: expected 'sat' but got '%a'" (Fmt.option Fmt.string) f pp_sat
-      result
-  in
-  let b = match result with `Sat -> true | `Unsat | `Unknown -> false in
-  OUnit2.assert_bool fail_msg b
+let equal_sat a b =
+  match (a, b) with
+  | `Sat, `Sat | `Unsat, `Unsat | `Unknown, `Unknown -> true
+  | (`Sat | `Unsat | `Unknown), _ -> false
 
-let check a b =
-  let pp_diff fmt (a, b) =
-    Fmt.pf fmt "Got '%a' but expected '%a'" Expr.pp a Expr.pp b
-  in
-  OUnit2.assert_equal ~pp_diff ~cmp:Expr.equal a b
+let sat = Alcotest.testable pp_sat equal_sat
+
+let check_sat result = Alcotest.check sat "result is `Sat" `Sat result
 
 module Infix = struct
   let true_ = Expr.Bool.true_

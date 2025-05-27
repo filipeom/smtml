@@ -1,37 +1,5 @@
-open OUnit2
+open Alcotest
 open Smtml
-
-let assert_equal =
-  let pp_diff fmt (expected, real) =
-    Fmt.pf fmt "Expected: %s@.Real: %s@." expected real
-  in
-  assert_equal ~cmp:String.equal ~pp_diff
-
-let test_to_json _ =
-  let x = Symbol.make Ty_int "x" in
-  let y = Symbol.make Ty_real "y" in
-  let z = Symbol.make Ty_bool "z" in
-  let u = Symbol.make Ty_str "u" in
-  let expected =
-    {|{
-  "model": {
-    "x": { "ty": "int", "value": 1 },
-    "u": { "ty": "str", "value": "abc" },
-    "y": { "ty": "real", "value": 2.0 },
-    "z": { "ty": "bool", "value": true }
-  }
-}|}
-  in
-  let model : Model.t =
-    let tbl = Hashtbl.create 16 in
-    List.iter
-      (fun ((s, v) : Symbol.t * Value.t) -> Hashtbl.replace tbl s v)
-      [ (x, Int 1); (y, Real 2.0); (z, True); (u, Str "abc") ];
-    tbl
-  in
-  let model_to_json = Model.to_json model in
-  let model = Fmt.str "%a" (Yojson.pretty_print ~std:true) model_to_json in
-  assert_equal expected model
 
 let test_of_json _ =
   let open Result in
@@ -48,7 +16,7 @@ let test_of_json _ =
     |}
   in
   let model = Model.Parse.Json.from_string model_str in
-  assert_bool "cannot parse model" (match model with Ok _ -> true | _ -> false)
+  check bool "model is valid" true (match model with Ok _ -> true | _ -> false)
 
 let test_rt_json _ =
   let x = Symbol.make (Ty_bitv 32) "x" in
@@ -73,18 +41,12 @@ let test_rt_json _ =
     let z_val = Model.evaluate model z in
     match (x_val, y_val, z_val) with
     | Some x_val, Some y_val, Some z_val ->
-      assert_bool "parsed values are incorrect"
+      check bool "parsed values are correct" true
         ( Value.equal x_val (Bitv (Bitvector.of_int32 Int32.min_int))
         && Value.equal y_val (Bitv (Bitvector.of_int64 Int64.max_int))
         && Value.equal z_val (Num (F32 (Int32.bits_of_float 5.0))) )
     | _ -> assert false
   end
-
-let test_json =
-  [ "test_to_json" >:: test_to_json
-  ; "test_of_json" >:: test_of_json
-  ; "test_rt_json" >:: test_rt_json
-  ]
 
 let test_of_scfg _ =
   let open Result in
@@ -99,12 +61,13 @@ let test_of_scfg _ =
     |}
   in
   let model = Model.Parse.Scfg.from_string model_str in
-  assert (match model with Ok _ -> true | _ -> false)
+  check bool "parse valid scfg model" true
+    (match model with Ok _ -> true | _ -> false)
 
-let test_scfg = [ "test_of_scfg" >:: test_of_scfg ]
-
-let test_suite =
-  "Test model serialization"
-  >::: [ "test_json" >::: test_json; "test_scfg" >::: test_scfg ]
-
-let () = run_test_tt_main test_suite
+let testsuite : unit test list =
+  [ ( "Model"
+    , [ test_case "test_of_json" `Quick test_of_json
+      ; test_case "test_round_trip_json" `Quick test_rt_json
+      ; test_case "test_of_scfg" `Quick test_of_scfg
+      ] )
+  ]

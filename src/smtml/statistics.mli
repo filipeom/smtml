@@ -14,6 +14,8 @@ type entry =
   | `Float of float  (** A floating-point statistic entry. *)
   ]
 
+val equal_entry : entry -> entry -> bool
+
 (** {1 Statistics Map} *)
 
 (** [Map] is a module for managing statistics as a map from string keys to

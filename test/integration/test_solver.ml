@@ -1,18 +1,16 @@
-open OUnit2
+open Alcotest
 open Smtml
 
 module Make (M : Mappings_intf.S_with_fresh) = struct
   open Smtml_test.Test_harness
   module Cached = Solver.Cached (M)
 
-  let setup _test_ctxt =
+  let setup () =
     let module Mappings : Mappings_intf.S = M.Fresh.Make () in
     (module Smtml.Solver.Incremental (Mappings) : Solver_intf.S)
 
-  let teardown _solver_module _test_ctxt = ()
-
-  let wrap f test_ctxt =
-    let solver_module = bracket setup teardown test_ctxt in
+  let with_solver f =
+    let solver_module = setup () in
     f solver_module
 
   let test_default_params _ =

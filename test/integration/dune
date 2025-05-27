@@ -1,7 +1,7 @@
 (library
  (name smtml_test_solver)
  (modules test_solver test_optimizer)
- (libraries smtml smtml_test))
+ (libraries alcotest smtml smtml_test))
 
 (test
  (name test_solver_z3)
