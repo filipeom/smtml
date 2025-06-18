@@ -118,3 +118,9 @@
    :with-dev-setup)
   (tls-lwt
    :with-dev-setup)))
+
+(package
+ (name smtml_ppx)
+ (synopsis "A ppx rewriter for easier smtml expressions matching")
+ (description "")
+ (depends ppxlib))

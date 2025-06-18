@@ -1,0 +1,11 @@
+(library
+ (name ppx)
+ (public_name smtml_ppx)
+ (modules ppx)
+ (kind ppx_rewriter)
+ (libraries ppxlib smtml))
+
+(executable
+ (name example)
+ (modules example)
+ (preprocess (pps smtml_ppx)))
